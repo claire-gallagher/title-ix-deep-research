@@ -39,6 +39,24 @@
   (mainly the `il_*` totals, which duplicate the sport rows and exclude football and basketball).
   Anything dropped is still in `data/raw` and the codebook.
 
+## IPEDS Institutional Characteristics (conferences)
+
+- **Source:** NCES IPEDS, `IC<Y>.zip` + `IC<Y>_Dict.zip` from https://nces.ed.gov/ipeds/datacenter/data/
+- **Download:** `uv run download_eada.py --ipeds` into `data/raw/ipeds/` (gitignored), one file per
+  EADA year: IC<Y> is academic year Y-(Y+1) = EADA `survey_year` Y+1 (EADA 2025 needs IC2024).
+- **Used:** `CONFNO1` (football conference) and `CONFNO2` (basketball conference), labelled from
+  each year's dictionary; the revised release (`_rv.csv`) when the zip has one. IC2024 is a
+  provisional release.
+- **Table `conferences`** (built by `build_eada.py`): one row per EADA school and year, with
+  `power_conference` = ACC, Big Ten, Big Twelve, SEC, plus Pac-12 through 2023-24; a school counts
+  if either its football or basketball conference is one, so Notre Dame counts (as in the House
+  settlement).
+- **Checked 2026-11-09** against realignment: 65 power schools a year 2015-16..2022-23 (64 + Notre
+  Dame); 2023-24 adds BYU, UCF, Cincinnati, Houston to the Big Twelve (69); 2024-25 moves Texas and
+  Oklahoma to the SEC, UCLA/USC/Oregon/Washington to the Big Ten, Arizona/Arizona State/Colorado/Utah
+  to the Big Twelve, Cal/Stanford/SMU to the ACC, leaving the Pac-12 with 2 (68 power schools).
+  12 EADA school-years have no IPEDS row.
+
 ## eada_codebook.csv (data dictionary)
 
 The variable tables of every codebook (`InstlevelDataDoc<year>.doc`, `SchoolsDoc<year>.doc`), one

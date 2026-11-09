@@ -13,6 +13,8 @@ SELECT
     unitid,
     institution_name,
     survey_year,
+    c.basketball_conference AS conference,  -- from IPEDS, as of that year; NULL if not reported
+    c.power_conference,
     effemalecount AS female_undergrads,
     eftotalcount AS total_undergrads,
     undup_ct_partic_women AS female_athletes,
@@ -23,7 +25,8 @@ SELECT
         100.0 * effemalecount / nullif(eftotalcount, 0)
         - 100.0 * undup_ct_partic_women / nullif(undup_ct_partic_men + undup_ct_partic_women, 0), 1
     ) AS gap_pp
-FROM institutions;
+FROM institutions
+LEFT JOIN conferences c USING (unitid, survey_year);
 
 -- Spending by gender: total and per athlete, so schools of different sizes compare fairly.
 -- Summed from the SPORT rows, not the institution file: the institution file's il_expense_* and
@@ -44,6 +47,8 @@ SELECT
     i.unitid,
     i.institution_name,
     i.survey_year,
+    c.basketball_conference AS conference,
+    c.power_conference,
     t.men_expenses,
     t.women_expenses,
     round(t.women_expenses / nullif(t.men_expenses + t.women_expenses, 0) * 100, 1) AS women_expense_pct,
@@ -52,8 +57,9 @@ SELECT
     i.tot_expense_all_notalloc AS unallocated_expenses,
     i.grnd_total_expense AS grand_total_expenses
 FROM institutions i
-JOIN team t USING (unitid, survey_year);
+JOIN team t USING (unitid, survey_year)
+LEFT JOIN conferences c USING (unitid, survey_year);
 
 -- Ideas for more views: recruiting spend by gender (recruitexp_*), athletic aid by gender
 -- (studentaid_*), head-coach salary by team gender (hdcoach_salary_*), year-over-year change per
--- school, conference rollups (needs a conference source; EADA has only classification_name).
+-- school, conference rollups (sum the parts per conference, don't average the schools' percentages).

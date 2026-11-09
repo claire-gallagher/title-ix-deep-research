@@ -11,6 +11,7 @@ year: 2025 = 2024-25. build_eada.py uses the folder name as survey_year.
   uv run download_eada.py                  2019-20 through the latest year
   uv run download_eada.py --from 2016      more history
   uv run download_eada.py --list           show what's available, download nothing
+  uv run download_eada.py --ipeds          IPEDS IC files (conference membership) for those years
 """
 
 import io
@@ -58,8 +59,35 @@ def download(entry: dict) -> list[str]:
     return kept
 
 
+IPEDS = "https://nces.ed.gov/ipeds/datacenter/data"
+IPEDS_RAW = RAW.parent / "ipeds"
+
+
+def download_ipeds() -> None:
+    """IPEDS Institutional Characteristics for every EADA year on disk, for conference membership.
+
+    EADA has no conference column; IPEDS IC asks each school its conference per sport (CONFNO1
+    football, CONFNO2 basketball) every year, keyed on the same unitid. IC<Y> covers academic year
+    Y-(Y+1), which is EADA survey_year Y+1, so EADA folder 2025 needs IC2024. Zips are kept as
+    downloaded: build_eada.py reads the CSV and the code labels (the dictionary) straight from them.
+    """
+    IPEDS_RAW.mkdir(parents=True, exist_ok=True)
+    for year_dir in sorted(p for p in RAW.iterdir() if p.is_dir() and p.name.isdigit()):
+        ic_year = int(year_dir.name) - 1
+        for name in (f"IC{ic_year}.zip", f"IC{ic_year}_Dict.zip"):
+            path = IPEDS_RAW / name
+            if path.exists():
+                print(f"   {name}: already downloaded")
+                continue
+            path.write_bytes(get(f"{IPEDS}/{name}"))
+            print(f"   {name}: {path.stat().st_size / 1e3:.0f} KB")
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
+    if "--ipeds" in args:
+        download_ipeds()
+        sys.exit()
     start = int(args[args.index("--from") + 1]) if "--from" in args else 2020
     entries = [f for f in file_list() if f["Year"] >= start]
     for f in entries:

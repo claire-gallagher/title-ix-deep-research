@@ -515,6 +515,54 @@
       ]
     },
     {
+      "name": "conferences",
+      "description": "Each school's football and basketball conference per year, from IPEDS (not EADA), with a power_conference flag (Power 5 through 2023-24, Power 4 from 2024-25; Notre Dame counts). Join on (unitid, survey_year): conferences change between years.",
+      "columns": [
+        {
+          "name": "survey_year",
+          "type": "BIGINT",
+          "description": "End year of the academic year the row covers: 2025 = 2024-25."
+        },
+        {
+          "name": "unitid",
+          "type": "BIGINT",
+          "description": "IPEDS unit ID: a school's stable identifier across years. Filter and join on this."
+        },
+        {
+          "name": "football_conference",
+          "type": "VARCHAR",
+          "description": "The school's football conference that year (IPEDS CONFNO1), e.g. 'Southeastern Conference'. NULL if it doesn't play football in an NCAA/NAIA conference."
+        },
+        {
+          "name": "basketball_conference",
+          "type": "VARCHAR",
+          "description": "The school's basketball conference that year (IPEDS CONFNO2): its all-sports conference for most schools. NULL if not reported."
+        },
+        {
+          "name": "power_conference",
+          "type": "BOOLEAN",
+          "description": "True if the school's football or basketball conference that year is a power conference: ACC, Big Ten, Big Twelve, SEC, plus Pac-12 through 2023-24. Notre Dame counts."
+        },
+        {
+          "name": "ipeds_file",
+          "type": "VARCHAR",
+          "enum_values": [
+            "IC2023_RV.csv",
+            "IC2024.csv",
+            "ic2015_rv.csv",
+            "ic2016_rv.csv",
+            "ic2017_rv.csv",
+            "ic2018_rv.csv",
+            "ic2019_rv.csv",
+            "ic2020_rv.csv",
+            "ic2021_rv.csv",
+            "ic2022_rv.csv"
+          ],
+          "description": "The IPEDS Institutional Characteristics file the row came from (provenance)."
+        }
+      ]
+    },
+    {
       "name": "institution_aliases",
       "description": "Alternate spellings of institution names -> unitid. Resolve user wording here before filtering.",
       "columns": [
@@ -553,6 +601,16 @@
           "name": "survey_year",
           "type": "BIGINT",
           "description": "End year of the academic year the row covers: 2025 = 2024-25."
+        },
+        {
+          "name": "conference",
+          "type": "VARCHAR",
+          "description": "The school's basketball (all-sports) conference that year, from IPEDS."
+        },
+        {
+          "name": "power_conference",
+          "type": "BOOLEAN",
+          "description": "True if the school's football or basketball conference that year is a power conference: ACC, Big Ten, Big Twelve, SEC, plus Pac-12 through 2023-24. Notre Dame counts."
         },
         {
           "name": "female_undergrads",
@@ -609,6 +667,16 @@
           "name": "survey_year",
           "type": "BIGINT",
           "description": "End year of the academic year the row covers: 2025 = 2024-25."
+        },
+        {
+          "name": "conference",
+          "type": "VARCHAR",
+          "description": "The school's basketball (all-sports) conference that year, from IPEDS."
+        },
+        {
+          "name": "power_conference",
+          "type": "BOOLEAN",
+          "description": "True if the school's football or basketball conference that year is a power conference: ACC, Big Ten, Big Twelve, SEC, plus Pac-12 through 2023-24. Notre Dame counts."
         },
         {
           "name": "men_expenses",
@@ -940,9 +1008,12 @@
       ]
     },
     {
-      "topic": "no conferences",
-      "note": "EADA has no conference column. classification_name gives the division (e.g. 'NCAA Division I-FBS'); some values have trailing spaces, so use TRIM or ILIKE.",
+      "topic": "conferences and Power 4/5",
+      "note": "Conferences come from IPEDS, not EADA: table conferences (and the conference / power_conference columns of both views), per school and year, so realignment is handled by joining on (unitid, survey_year), never by a fixed list. power_conference = Power 5 (ACC, Big Ten, Big Twelve, Pac-12, SEC) through 2023-24 and Power 4 (Pac-12 dropped) in 2024-25; Notre Dame counts. Names are IPEDS's: the Big 12 is 'Big Twelve Conference', the Ivy League 'Ivy Group'; call get_enum_values. Say when a comparison crosses a realignment year (2023-24, 2024-25). For a conference total, sum the schools' numbers; don't average their percentages. A few school-years have no IPEDS row (conference NULL). classification_name gives the division (e.g. 'NCAA Division I-FBS'), with trailing spaces: use TRIM or ILIKE.",
       "columns": [
+        "conferences.power_conference",
+        "basketball_conference",
+        "football_conference",
         "classification_name"
       ]
     },

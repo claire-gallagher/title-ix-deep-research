@@ -1,5 +1,5 @@
 {
-  "_about": "Hand-written notes from the EADA codebooks (data/eada_codebook.csv), checked against the data for 2015-16..2024-25 on 2026-11-09. Merged into data/eada_mappings.json by build_eada.py; the Data Researcher reads them with read_mappings. Column descriptions here override the codebook label. Keys are bare column names. The tables are trimmed by sql/tables.sql; its header says what was left out and why.",
+  "_about": "Hand-written notes from the EADA codebooks (data/eada_codebook.csv), checked against the data for 2015-16..2024-25 on 2026-11-09. Merged into data/eada_mappings.json by build_eada.py; they go into the Data Researcher's instructions. Column descriptions here override the codebook label. Keys are bare column names. The tables are trimmed by sql/tables.sql; its header says what was left out and why.",
   "gotchas": [
     {
       "topic": "team money is in sports",
@@ -57,9 +57,9 @@
       "columns": ["sports"]
     },
     {
-      "topic": "no conferences",
-      "note": "EADA has no conference column. classification_name gives the division (e.g. 'NCAA Division I-FBS'); some values have trailing spaces, so use TRIM or ILIKE.",
-      "columns": ["classification_name"]
+      "topic": "conferences and Power 4/5",
+      "note": "Conferences come from IPEDS, not EADA: table conferences (and the conference / power_conference columns of both views), per school and year, so realignment is handled by joining on (unitid, survey_year), never by a fixed list. power_conference = Power 5 (ACC, Big Ten, Big Twelve, Pac-12, SEC) through 2023-24 and Power 4 (Pac-12 dropped) in 2024-25; Notre Dame counts. Names are IPEDS's: the Big 12 is 'Big Twelve Conference', the Ivy League 'Ivy Group'; call get_enum_values. Say when a comparison crosses a realignment year (2023-24, 2024-25). For a conference total, sum the schools' numbers; don't average their percentages. A few school-years have no IPEDS row (conference NULL). classification_name gives the division (e.g. 'NCAA Division I-FBS'), with trailing spaces: use TRIM or ILIKE.",
+      "columns": ["conferences.power_conference", "basketball_conference", "football_conference", "classification_name"]
     },
     {
       "topic": "coaches",
@@ -125,7 +125,12 @@
     "women_team_asst_coaches_female": "Female assistant coaches of the women's team.",
     "coed_team_asst_coaches_male": "Male assistant coaches of the co-ed team.",
     "coed_team_asst_coaches_female": "Female assistant coaches of the co-ed team.",
-    "alias": "An alternate spelling of a school's name. Match user wording here with ILIKE, then use unitid.",
+    "football_conference": "The school's football conference that year (IPEDS CONFNO1), e.g. 'Southeastern Conference'. NULL if it doesn't play football in an NCAA/NAIA conference.",
+    "basketball_conference": "The school's basketball conference that year (IPEDS CONFNO2): its all-sports conference for most schools. NULL if not reported.",
+    "conference": "The school's basketball (all-sports) conference that year, from IPEDS.",
+    "power_conference": "True if the school's football or basketball conference that year is a power conference: ACC, Big Ten, Big Twelve, SEC, plus Pac-12 through 2023-24. Notre Dame counts.",
+    "ipeds_file": "The IPEDS Institutional Characteristics file the row came from (provenance).",
+    "alias":"An alternate spelling of a school's name. Match user wording here with ILIKE, then use unitid.",
     "female_undergrads": "Full-time female undergraduates.",
     "total_undergrads": "Full-time undergraduates.",
     "female_athletes": "Female athletes, each counted once, incl. co-ed teams.",
