@@ -60,7 +60,7 @@ def enum_values(table: str, column: str) -> dict:
     _, mappings = _connect()
     t = next((t for t in mappings["tables"] if t["name"] == table), None)
     if t is None:
-        return {"error": f"No table '{table}'. Call read_mappings for the tables."}
+        return {"error": f"No table '{table}'. The tables are listed in your instructions' schema."}
     c = next((c for c in t["columns"] if c["name"] == column), None)
     if c is None:
         return {"error": f"No column '{column}' in {table}."}
@@ -81,7 +81,9 @@ def run_sql(query: str) -> dict:
             return {"error": str(e)}
         columns = [c[0] for c in cursor.description or []]
     # DECIMAL comes back as Decimal: make it a float so evidence.py can match rounded forms
-    clean = [[float(v) if isinstance(v, Decimal) else v for v in r] for r in rows[:MAX_ROWS]]
+    # Floats to 4 decimals: 714903.332103321 costs tokens in every later turn and says nothing more.
+    # evidence.verify() checks against these stored values, so what the model sees is what it's held to.
+    clean = [[round(float(v), 4) if isinstance(v, (Decimal, float)) else v for v in r] for r in rows[:MAX_ROWS]]
     return {"columns": columns, "rows": clean, "truncated": len(rows) > MAX_ROWS}
 
 

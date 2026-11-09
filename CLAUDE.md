@@ -15,6 +15,7 @@ uv run evidence.py                        # self-check (stdlib only)
 uv run web.py --selfcheck                 # access-detection self-check, no network
 uv run policy.py "revenue sharing cap"    # search the policy corpus
 uv run evals/citation_eval.py             # citation eval against a running server
+uv run runlog.py [last | tavily]          # run traces (findings, rejections + reasons, tokens), Tavily credits
 git push                                  # deploys: Cloud Run builds main via Developer Connect
 ```
 
@@ -45,8 +46,8 @@ bucket mounted at `/data` (`EADA_DB=/data/eada.duckdb`), so don't commit the dat
 - Findings reach the Writer only after `evidence.verify()` passes. Don't weaken this to make a
   demo work; fix the researcher prompt or the fetch instead.
 - No paywall or bot-protection bypassing (archive sites, bypass services, spoofed clients).
-- Keep the three money flows (athletics spending / revenue sharing / third-party NIL) separate in
-  prompts and output.
+- Keep the money flows (athletics spending / revenue sharing / third-party NIL, plus House
+  settlement back-pay damages, which are none of these) separate in prompts and output.
 - Label every number with the period it covers.
 
 ## Where things are
@@ -59,6 +60,7 @@ bucket mounted at `/data` (`EADA_DB=/data/eada.duckdb`), so don't commit the dat
 | `web.py` | search, fetch, access detection, publication dates, cache, source tiers |
 | `policy.py` | BM25 search over `data/policy/*.md` |
 | `evidence.py` | evidence verification and citation checks |
+| `runlog.py` | per-run traces in `data/cache/runs/`, Tavily usage |
 | `build_eada.py`, `sql/views.sql` | offline build step |
 | `data/` | `nil_facts.csv`, `column_notes.json`, `sources.json`, `policy/`, `raw/` (gitignored) |
 | `evals/` | questions + citation eval |

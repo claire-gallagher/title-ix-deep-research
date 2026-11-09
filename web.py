@@ -15,6 +15,7 @@ evidence.py checks against.
 
   uv run web.py --selfcheck            access detection, no network
   uv run web.py https://example.com    fetch one page and print what came back
+Tavily credits and per-run traces: uv run runlog.py
 """
 
 import hashlib
@@ -149,11 +150,11 @@ def fetch(url: str, max_age_hours: float = 24) -> dict:
 # --- Search ---
 
 
-def search(query: str, max_results: int = 6) -> list[dict]:
-    """Search the web. Returns [{title, url, snippet, published, source_type, typical_access}].
+def search(query: str, max_results: int = 6) -> tuple[list[dict], bool]:
+    """Search the web. Returns ([{title, url, snippet, published, source_type, typical_access}],
+    from_cache). from_cache is False when the search spent a Tavily credit.
 
-    Tavily by default (TAVILY_API_KEY). TODO: confirm the request/response shape against Tavily's
-    current docs, or swap in Brave/Exa here; nothing else depends on which API this is.
+    Tavily (TAVILY_API_KEY); nothing else depends on which search API this is.
     """
     import httpx
 
@@ -161,7 +162,7 @@ def search(query: str, max_results: int = 6) -> list[dict]:
     normalized = " ".join(query.lower().split())
     cache_path = SEARCH_CACHE_DIR / (hashlib.sha256(f"{normalized}|{max_results}".encode()).hexdigest()[:24] + ".json")
     if cache_path.exists() and time.time() - cache_path.stat().st_mtime < SEARCH_CACHE_HOURS * 3600:
-        return json.loads(cache_path.read_text())
+        return json.loads(cache_path.read_text()), True
 
     key = os.environ.get("TAVILY_API_KEY")
     if not key:
@@ -184,12 +185,26 @@ def search(query: str, max_results: int = 6) -> list[dict]:
             "source_type": info["source_type"],
             "typical_access": info["access"],
         })
-    # Known open, high-tier sources first: they can actually be verified
+    # Paywalled sites last, whatever their tier: a page we can't read can't verify anything, and
+    # researchers fetch from the top. Then known high-tier sources first.
     rank = {"official_body": 0, "policy_document": 1, "official_filing": 1, "industry_report": 2, "news": 3, "legal_analysis": 3, "unknown": 4, "estimate": 5}
-    results.sort(key=lambda r: (rank.get(r["source_type"], 4), r["typical_access"] == "paywalled"))
+    results.sort(key=lambda r: (r["typical_access"] == "paywalled", rank.get(r["source_type"], 4)))
     SEARCH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(results))
-    return results
+    return results, False
+
+
+def tavily_usage() -> dict:
+    """Credits used and left this billing cycle, from Tavily's /usage endpoint (costs no credits)."""
+    import httpx
+
+    key = os.environ.get("TAVILY_API_KEY")
+    if not key:
+        return {"error": "TAVILY_API_KEY is not set"}
+    response = httpx.get("https://api.tavily.com/usage", headers={"Authorization": f"Bearer {key}"}, timeout=15)
+    if response.status_code != 200:
+        return {"error": f"HTTP {response.status_code}: {response.text[:200]}"}
+    return response.json()
 
 
 if __name__ == "__main__":
