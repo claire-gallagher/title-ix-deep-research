@@ -854,6 +854,17 @@
       ]
     },
     {
+      "topic": "EADA leaves out capital, debt service and indirect facilities",
+      "note": "Per the Department of Education's EADA User's Guide (Sept 2026, Total Expenses and Total Revenues instructions), schools must not report capital expenditures, debt service, or indirect facilities support (facilities and services the institution provides but doesn't charge to athletics) as expenses or revenues. So EADA totals are lower than, and not comparable to, the 'total athletics spending' in NCAA financial reports or news stories, which include those. Say 'operating spending as reported to EADA' and don't reconcile the two. The instructions for earlier survey years were not checked and may be worded differently.",
+      "columns": [
+        "grnd_total_expense",
+        "grnd_total_revenue",
+        "tot_expense_all_notalloc",
+        "expense_menall",
+        "expense_womenall"
+      ]
+    },
+    {
       "topic": "duplicated participants",
       "note": "sports.partic_* and sum_partic_* count an athlete once per team, so summing them over sports counts multi-sport athletes several times (participation opportunities, not people). For people (proportionality, per-athlete spending) use institutions.undup_ct_partic_men / undup_ct_partic_women, as v_proportionality does.",
       "columns": [

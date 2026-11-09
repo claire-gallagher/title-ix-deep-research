@@ -37,7 +37,7 @@ def _load() -> list[dict]:
     for path in sorted(POLICY_DIR.glob("*.md")):
         if path.name.lower() == "readme.md":
             continue
-        raw = path.read_text()
+        raw = path.read_text(encoding="utf-8")  # not the platform default: cp1252 on Windows garbles quotes
         header, _, body = raw.partition("\n---\n")
         meta = dict(line.split(":", 1) for line in header.splitlines() if ":" in line)
         meta = {k.strip(): v.strip() for k, v in meta.items()}
