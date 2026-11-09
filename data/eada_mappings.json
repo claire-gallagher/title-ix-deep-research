@@ -1,0 +1,2195 @@
+{
+  "tables": [
+    {
+      "name": "institutions",
+      "description": "EADA institution-level data: one row per school per year (enrollment, participation, spending, revenue totals).",
+      "columns": [
+        {
+          "name": "survey_year",
+          "type": "BIGINT",
+          "description": "End year of the academic year the row covers: 2025 = 2024-25. Loaded 2016-2025."
+        },
+        {
+          "name": "unitid",
+          "type": "BIGINT",
+          "description": "IPEDS unit ID: the stable identifier for a school across years. Filter on this, not on the name."
+        },
+        {
+          "name": "institution_name",
+          "type": "VARCHAR",
+          "description": "Official IPEDS name of the school (e.g. 'The University of Alabama'). Resolve user wording via institution_aliases; filter on unitid."
+        },
+        {
+          "name": "addr1_txt",
+          "type": "VARCHAR",
+          "description": "Codebook label: addr1_txt"
+        },
+        {
+          "name": "addr2_txt",
+          "type": "VARCHAR",
+          "description": "Codebook label: addr2_txt"
+        },
+        {
+          "name": "city_txt",
+          "type": "VARCHAR",
+          "description": "Codebook label: city_txt"
+        },
+        {
+          "name": "state_cd",
+          "type": "VARCHAR",
+          "enum_values": [
+            "AK",
+            "AL",
+            "AR",
+            "AZ",
+            "CA",
+            "CO",
+            "CT",
+            "DC",
+            "DE",
+            "FL",
+            "GA",
+            "HI",
+            "IA",
+            "ID",
+            "IL",
+            "IN",
+            "KS",
+            "KY",
+            "LA",
+            "MA",
+            "MD",
+            "ME",
+            "MI",
+            "MN",
+            "MO",
+            "MS",
+            "MT",
+            "NC",
+            "ND",
+            "NE",
+            "NH",
+            "NJ",
+            "NM",
+            "NV",
+            "NY",
+            "OH",
+            "OK",
+            "OR",
+            "PA",
+            "PR",
+            "RI",
+            "SC",
+            "SD",
+            "TN",
+            "TX",
+            "UT",
+            "VA",
+            "VI",
+            "VT",
+            "WA",
+            "WI",
+            "WV",
+            "WY"
+          ],
+          "description": "Codebook label: state_cd"
+        },
+        {
+          "name": "zip_text",
+          "type": "DOUBLE",
+          "description": "Codebook label: zip_text"
+        },
+        {
+          "name": "classificationcode",
+          "type": "BIGINT",
+          "description": "Codebook label: Classification Code"
+        },
+        {
+          "name": "classification_name",
+          "type": "VARCHAR",
+          "enum_values": [
+            "CCCAA",
+            "Independent",
+            "NAIA Division I",
+            "NAIA Division I ",
+            "NAIA Division II",
+            "NAIA Division II ",
+            "NCAA Division I without football",
+            "NCAA Division I-FBS",
+            "NCAA Division I-FCS",
+            "NCAA Division II with football",
+            "NCAA Division II without football",
+            "NCAA Division III with football",
+            "NCAA Division III without football",
+            "NCCAA Division I",
+            "NCCAA Division I ",
+            "NCCAA Division II",
+            "NCCAA Division II ",
+            "NJCAA Division I",
+            "NJCAA Division I ",
+            "NJCAA Division II",
+            "NJCAA Division II ",
+            "NJCAA Division III",
+            "NJCAA Division III ",
+            "NWAC",
+            "Other",
+            "Other ",
+            "USCAA"
+          ],
+          "description": "Athletic association and division, e.g. 'NCAA Division I-FBS'. Merged from 'classificationname' in the 2018-19 file."
+        },
+        {
+          "name": "classificationother",
+          "type": "VARCHAR",
+          "description": "Codebook label: Other Classification"
+        },
+        {
+          "name": "efmalecount",
+          "type": "BIGINT",
+          "description": "Full-time male undergraduates."
+        },
+        {
+          "name": "effemalecount",
+          "type": "BIGINT",
+          "description": "Full-time female undergraduates."
+        },
+        {
+          "name": "eftotalcount",
+          "type": "BIGINT",
+          "description": "Full-time undergraduates, total (= male + female)."
+        },
+        {
+          "name": "sector_cd",
+          "type": "BIGINT",
+          "description": "Codebook label: Sector Code"
+        },
+        {
+          "name": "sector_name",
+          "type": "VARCHAR",
+          "enum_values": [
+            "Private for-profit, 2-year",
+            "Private for-profit, 4-year or above",
+            "Private nonprofit, 2-year",
+            "Private nonprofit, 4-year or above",
+            "Public, 2-year",
+            "Public, 4-year or above",
+            "Sector Unknown"
+          ],
+          "description": "Institution type: public/private, nonprofit/for-profit, 4-year/2-year."
+        },
+        {
+          "name": "studentaid_men",
+          "type": "DOUBLE",
+          "description": "Athletically related student aid to men's teams, USD, the academic year."
+        },
+        {
+          "name": "studentaid_women",
+          "type": "DOUBLE",
+          "description": "Athletically related student aid to women's teams, USD, the academic year."
+        },
+        {
+          "name": "studentaid_coed",
+          "type": "DOUBLE",
+          "description": "Athletically related student aid to co-ed teams, USD."
+        },
+        {
+          "name": "studentaid_total",
+          "type": "BIGINT",
+          "description": "Codebook label: Total Student Aid/ Men's/Women's/Coed Team"
+        },
+        {
+          "name": "stuaid_men_ratio",
+          "type": "BIGINT",
+          "description": "Men's teams' share of athletic student aid, in percent (0-100; men + women + co-ed = 100)."
+        },
+        {
+          "name": "stuaid_women_ratio",
+          "type": "BIGINT",
+          "description": "Women's teams' share of athletic student aid, in percent (0-100; men + women + co-ed = 100)."
+        },
+        {
+          "name": "stuaid_coed_ratio",
+          "type": "BIGINT",
+          "description": "Codebook label: Ratio Athletic Student Aid/Coed Team"
+        },
+        {
+          "name": "recruitexp_men",
+          "type": "DOUBLE",
+          "description": "Recruiting expenses for men's teams, USD."
+        },
+        {
+          "name": "recruitexp_women",
+          "type": "DOUBLE",
+          "description": "Recruiting expenses for women's teams, USD."
+        },
+        {
+          "name": "recruitexp_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: Recruiting Expenses for Coed Team"
+        },
+        {
+          "name": "recruitexp_total",
+          "type": "BIGINT",
+          "description": "Codebook label: Total Recruiting Exp./Men and Women's Team"
+        },
+        {
+          "name": "hdcoach_salary_men",
+          "type": "DOUBLE",
+          "description": "Average annual institutional salary per head coach of men's teams, USD."
+        },
+        {
+          "name": "hdcoach_salary_women",
+          "type": "DOUBLE",
+          "description": "Average annual institutional salary per head coach of women's teams, USD."
+        },
+        {
+          "name": "hdcoach_salary_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: Annual Salary per HD Coach/Coed"
+        },
+        {
+          "name": "num_hdcoach_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: # HD Coaches Men's Team"
+        },
+        {
+          "name": "num_hdcoach_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: # HD Coaches Women's Team"
+        },
+        {
+          "name": "num_hdcoach_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: # HD Coaches Coed Team"
+        },
+        {
+          "name": "hdcoach_sal_fte_men",
+          "type": "DOUBLE",
+          "description": "Average salary per full-time-equivalent head coach of men's teams, USD."
+        },
+        {
+          "name": "hdcoach_sal_fte_womn",
+          "type": "DOUBLE",
+          "description": "Average salary per full-time-equivalent head coach of women's teams, USD."
+        },
+        {
+          "name": "hdcoach_sal_fte_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: Ave. salary per FTE HD Coach/Coed"
+        },
+        {
+          "name": "fte_hdcoach_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: # FTE HD Coach/Men's Team"
+        },
+        {
+          "name": "fte_hdcoach_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: # FTE HD Coach/Women's Team"
+        },
+        {
+          "name": "fte_hdcoach_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: # FTE HD Coach/Coed Team"
+        },
+        {
+          "name": "ascoach_salary_men",
+          "type": "DOUBLE",
+          "description": "Average annual salary per assistant coach of men's teams, USD."
+        },
+        {
+          "name": "ascoach_salary_women",
+          "type": "DOUBLE",
+          "description": "Average annual salary per assistant coach of women's teams, USD."
+        },
+        {
+          "name": "ascoach_salary_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: Annual Salary/Assist. Coach/Coed"
+        },
+        {
+          "name": "num_ascoach_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Assist. Coach/Men's"
+        },
+        {
+          "name": "num_ascoach_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Assist. Coach/Women's"
+        },
+        {
+          "name": "num_ascoach_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Assist. Coach/Coed"
+        },
+        {
+          "name": "ascoach_sal_fte_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Ave. salary per FTE/Men's"
+        },
+        {
+          "name": "ascoach_sal_fte_womn",
+          "type": "DOUBLE",
+          "description": "Codebook label: Ave. salary per FTE/Women's"
+        },
+        {
+          "name": "ascoach_sal_fte_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: Ave. salary per FTE/Coed"
+        },
+        {
+          "name": "fte_ascoach_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: # FTEs Assist. Coach/Men's"
+        },
+        {
+          "name": "fte_ascoach_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: # FTEs Assist. Coach/Women's"
+        },
+        {
+          "name": "fte_ascoach_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: # FTEs Assist. Coach/Coed"
+        },
+        {
+          "name": "il_partic_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Participants Men"
+        },
+        {
+          "name": "il_partic_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Participants Women"
+        },
+        {
+          "name": "il_partic_coed_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Participants Men Coed"
+        },
+        {
+          "name": "il_partic_coed_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Participants Women Coed"
+        },
+        {
+          "name": "il_sum_partic_men",
+          "type": "BIGINT",
+          "description": "Male participants summed over teams, incl. co-ed (duplicated: one athlete per team they're on)."
+        },
+        {
+          "name": "il_sum_partic_women",
+          "type": "BIGINT",
+          "description": "Female participants summed over teams, incl. co-ed (duplicated: one athlete per team they're on)."
+        },
+        {
+          "name": "il_opexpperpart_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Exp. Per Participant/Men"
+        },
+        {
+          "name": "il_opexpperteam_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Exp. Per Team/Men"
+        },
+        {
+          "name": "il_opexpperpart_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Exp. Per Participant/Women"
+        },
+        {
+          "name": "il_opexpperteam_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Exp. Per Team/Women"
+        },
+        {
+          "name": "il_total_opexp_menwomen",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Exp. Men and Women"
+        },
+        {
+          "name": "il_opexpperpart_coed_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Exp. Per Participant/Coed Men"
+        },
+        {
+          "name": "il_opexpperteam_coed_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Exp. Per Team/Coed Men"
+        },
+        {
+          "name": "il_opexp_part_coed_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Exp. Per Participant Women/Coed"
+        },
+        {
+          "name": "il_opexp_team_coed_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Exp. Per Team Women/Coed"
+        },
+        {
+          "name": "il_total_opexp_coedteam",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Exp. Coed Men/Coed Women"
+        },
+        {
+          "name": "il_sum_opexpperpart_men",
+          "type": "BIGINT",
+          "description": "Codebook label: Total Exp. Per Participant/Men/Coed Men"
+        },
+        {
+          "name": "il_sum_opexpperteam_men",
+          "type": "BIGINT",
+          "description": "Codebook label: Total Exp. Per Team/Men/Coed Men"
+        },
+        {
+          "name": "il_sum_opexpperpart_women",
+          "type": "BIGINT",
+          "description": "Codebook label: Total Exp. Per Participant/Women/Coed Women"
+        },
+        {
+          "name": "il_sum_opexpperteam_women",
+          "type": "BIGINT",
+          "description": "Codebook label: Total Exp. Per Team/Women/Coed Women"
+        },
+        {
+          "name": "il_total_opexp_inclcoed",
+          "type": "BIGINT",
+          "description": "Codebook label: Total Exp. Men/Women/Coed Men/Women"
+        },
+        {
+          "name": "il_men_ftheadcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's HD Coach/Male/Full-Time"
+        },
+        {
+          "name": "il_men_ptheadcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's HD Coach/Male/Part-Time"
+        },
+        {
+          "name": "il_men_ftunivemploy_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's HD Coach/Male/FTEmp"
+        },
+        {
+          "name": "il_men_ptunivemploy_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's HD Coach/Male/PTEmp"
+        },
+        {
+          "name": "il_men_ftheadcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's HD Coach/Female/Full-Time"
+        },
+        {
+          "name": "il_men_ptheadcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's HD Coach/Female/Part-Time"
+        },
+        {
+          "name": "il_men_ftunivemploy_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's HD Coach/Female/FTEmp"
+        },
+        {
+          "name": "il_men_ptunivemploy_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's HD Coach/Female/PTEmp"
+        },
+        {
+          "name": "il_men_total_headcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # HD Coach/Men's Team"
+        },
+        {
+          "name": "il_women_fthdcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's HD Coach/Male/Full-Time"
+        },
+        {
+          "name": "il_women_pthdcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's HD Coach/Male/Part-Time"
+        },
+        {
+          "name": "il_women_ftunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's HD Coach/Male/FTEmp"
+        },
+        {
+          "name": "il_women_ptunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's HD Coach/Male/PTEmp"
+        },
+        {
+          "name": "il_women_fthdcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's HD Coach/Female/Full-Time"
+        },
+        {
+          "name": "il_women_pthdcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's HDCoach/Female/Part-Time"
+        },
+        {
+          "name": "il_women_ftunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's HDCoach/Female/FTEmp"
+        },
+        {
+          "name": "il_women_ptunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's HD Coach/Female/PTEmp"
+        },
+        {
+          "name": "il_women_total_hdcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # HDCoach/Women's Team"
+        },
+        {
+          "name": "il_coed_fthdcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed HD Coach//Male/Full-Time"
+        },
+        {
+          "name": "il_coed_pthdcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed HD Coach/Male/Part-Time"
+        },
+        {
+          "name": "il_coed_ftunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed HD Coach/Male/FTEmp"
+        },
+        {
+          "name": "il_coed_ptunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed HD Coach/Male/PTEmp"
+        },
+        {
+          "name": "il_coed_fthdcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed HD Coach/Female/Full-Time"
+        },
+        {
+          "name": "il_coed_pthdcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed HD Coach/Female/Part-Time"
+        },
+        {
+          "name": "il_coed_ftunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed HD Coach/Female/FTEmp"
+        },
+        {
+          "name": "il_coed_ptunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed HD Coach/Female/PTEmp"
+        },
+        {
+          "name": "il_coed_total_hdcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed Team HD Coaches"
+        },
+        {
+          "name": "il_sum_fthdcoach_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Male HD Coaches/Men/Women/Coed/Full-Time"
+        },
+        {
+          "name": "il_sum_pthdcoach_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Male HD Coaches/Men/Women/Coed/Part-Time"
+        },
+        {
+          "name": "il_sum_ftunivemp_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Male HD Coaches/Men/Women/Coed/FTEmp"
+        },
+        {
+          "name": "il_sum_ptunivemp_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Male HD Coaches/Men/Women/Coed/PTEmp"
+        },
+        {
+          "name": "il_sum_fthdcoach_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Female HD Coaches/Men/Women/Coed/Full-Time"
+        },
+        {
+          "name": "il_sum_pthdcoach_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Female HD Coaches/Men/Women/Coed/Part-Time"
+        },
+        {
+          "name": "il_sum_ftunivemp_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Female HD Coaches/Men/Women/Coed/FTEmp"
+        },
+        {
+          "name": "il_sum_ptunivemp_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Female HD Coaches/Men/Women/Coed/PTEmp"
+        },
+        {
+          "name": "il_sum_total_hdcoach",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # HD Coaches/Men/Women/Coed Teams"
+        },
+        {
+          "name": "il_men_ftascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's Assist. Coach/Male/Full-Time"
+        },
+        {
+          "name": "il_men_ptascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's Assist. Coach/Male/Part-Time"
+        },
+        {
+          "name": "il_men_ftacunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's Assist. Coach/Male/FTEmp"
+        },
+        {
+          "name": "il_men_ptacunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's Assist. Coach/Male/PTEmp"
+        },
+        {
+          "name": "il_men_ftasstcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's Assist. Coach/Female/Full-Time"
+        },
+        {
+          "name": "il_men_ptasstcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's Assist. Coach/Female/Part-Time"
+        },
+        {
+          "name": "il_men_ftacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's Assist. Coach/Female/FTEmp"
+        },
+        {
+          "name": "il_men_ptacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Men's Assist. Coach/Female/PTEmp"
+        },
+        {
+          "name": "il_men_total_asstcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Number of Total Assist. Coaches in Men's Team"
+        },
+        {
+          "name": "il_women_ftascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's Assist. Coach/Male/Full-Time"
+        },
+        {
+          "name": "il_women_ptascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's Assist. Coach/Male/Part-Time"
+        },
+        {
+          "name": "il_women_ftacunemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's Assist. Coach/Male/FTEmp"
+        },
+        {
+          "name": "il_women_ptacunemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's Assist. Coach/Male/PTEmp"
+        },
+        {
+          "name": "il_women_ftastcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's Assist. Coach/Female/Full-Time"
+        },
+        {
+          "name": "il_women_ptastcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's Assist. Coach/Female/Part-Time"
+        },
+        {
+          "name": "il_womn_ftacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's Assist. Coach/Female/FTEmp"
+        },
+        {
+          "name": "il_womn_ptacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Women's Assist. Coach Female/PTEmp"
+        },
+        {
+          "name": "il_women_total_astcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Number of Total Assist. Coaches in Women's Team"
+        },
+        {
+          "name": "il_coed_ftascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed Assist. Coach/Male/Full-Time"
+        },
+        {
+          "name": "il_coed_ptascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed Assist. Coach/Male/Part-Time"
+        },
+        {
+          "name": "il_coed_ftacunemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed Assist. Coach/Male/FTEmp"
+        },
+        {
+          "name": "il_coed_ptacunemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed Assist. Coach/Male/PTEmp"
+        },
+        {
+          "name": "il_coed_ftastcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed Assist. Coach/Female/Full-Time"
+        },
+        {
+          "name": "il_coed_ptastcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed Assist. Coach/Female/Part-Time"
+        },
+        {
+          "name": "il_coed_ftacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed Assist. Coach/Female/FTEmp"
+        },
+        {
+          "name": "il_coed_ptacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed Assist. Coach/Female/PTEmp"
+        },
+        {
+          "name": "il_coed_total_astcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # of Total Assist. Coaches in Coed Team"
+        },
+        {
+          "name": "il_sum_ftascoach_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Male/Full-Time"
+        },
+        {
+          "name": "il_sum_ptascoach_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Male/Part-Time"
+        },
+        {
+          "name": "il_sum_ftacunivemp_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Male/FTEmp"
+        },
+        {
+          "name": "il_sum_ptacunivemp_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Male/PTEmp"
+        },
+        {
+          "name": "il_sum_ftascoach_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Female/Full-Time"
+        },
+        {
+          "name": "il_sum_ptascoach_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Female/Part-Time"
+        },
+        {
+          "name": "il_sum_ftacunivemp_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Female/FTEmp"
+        },
+        {
+          "name": "il_sum_ptacunivemp_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Female/PTEmp"
+        },
+        {
+          "name": "il_sum_total_asstcoach",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coaches/Men/Women/Coed Teams"
+        },
+        {
+          "name": "il_rev_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Revenues per Team for Men"
+        },
+        {
+          "name": "il_rev_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Revenues per Team for Women"
+        },
+        {
+          "name": "il_total_rev_menwomen",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Revenues per Team for Men and Women"
+        },
+        {
+          "name": "il_rev_coed_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Revenues per Team for Coed Men"
+        },
+        {
+          "name": "il_rev_coed_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Revenues per Team for Coed Women"
+        },
+        {
+          "name": "il_total_rev_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Revenues per Team/ Coed Men/Coed Women"
+        },
+        {
+          "name": "il_revenue_menall",
+          "type": "BIGINT",
+          "description": "Revenues of men's and co-ed men's teams in all sports EXCEPT football and basketball, USD."
+        },
+        {
+          "name": "il_revenue_womenall",
+          "type": "BIGINT",
+          "description": "Revenues of women's and co-ed women's teams in all sports EXCEPT football and basketball, USD."
+        },
+        {
+          "name": "il_total_revenue_all",
+          "type": "BIGINT",
+          "description": "Team revenues, all sports EXCEPT football and basketball, USD."
+        },
+        {
+          "name": "il_exp_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Expenses per Team for Men"
+        },
+        {
+          "name": "il_exp_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Expenses per Team for Women"
+        },
+        {
+          "name": "il_total_exp_menwomen",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Expenses per Team for Men and Women"
+        },
+        {
+          "name": "il_exp_coed_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Expenses per Team for Coed Men"
+        },
+        {
+          "name": "il_exp_coed_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Expenses per Team for Coed Women"
+        },
+        {
+          "name": "il_total_exp_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Expenses per Team/Coed Men and Coed Women"
+        },
+        {
+          "name": "il_expense_menall",
+          "type": "BIGINT",
+          "description": "Expenses of men's and co-ed men's teams in all sports EXCEPT football and basketball, USD."
+        },
+        {
+          "name": "il_expense_womenall",
+          "type": "BIGINT",
+          "description": "Expenses of women's and co-ed women's teams in all sports EXCEPT football and basketball, USD."
+        },
+        {
+          "name": "il_total_expense_all",
+          "type": "BIGINT",
+          "description": "Team expenses, all sports EXCEPT football and basketball, USD."
+        },
+        {
+          "name": "undup_ct_partic_men",
+          "type": "BIGINT",
+          "description": "Unduplicated count of male athletes on men's and co-ed teams (each athlete once). Use for proportionality and per-athlete figures."
+        },
+        {
+          "name": "undup_ct_partic_women",
+          "type": "BIGINT",
+          "description": "Unduplicated count of female athletes on women's and co-ed teams (each athlete once). Use for proportionality and per-athlete figures."
+        },
+        {
+          "name": "tot_revenue_all_notalloc",
+          "type": "BIGINT",
+          "description": "Athletics revenues not allocated to any team or sex, USD."
+        },
+        {
+          "name": "tot_expense_all_notalloc",
+          "type": "BIGINT",
+          "description": "Athletics expenses not allocated to any team or sex (facilities, administration...), USD."
+        },
+        {
+          "name": "grnd_total_revenue",
+          "type": "BIGINT",
+          "description": "Grand total athletics revenues: all team revenues + not-allocated revenues, USD."
+        },
+        {
+          "name": "grnd_total_expense",
+          "type": "BIGINT",
+          "description": "Grand total athletics expenses: all team expenses + not-allocated expenses, USD."
+        },
+        {
+          "name": "opeid",
+          "type": "DOUBLE",
+          "description": "Office of Postsecondary Education ID. Only present from 2021-22 (survey_year 2022); NULL earlier."
+        }
+      ]
+    },
+    {
+      "name": "sports",
+      "description": "EADA sport-level data: one row per school, year and sport (participation, coaches, revenue, expenses by team).",
+      "columns": [
+        {
+          "name": "survey_year",
+          "type": "BIGINT",
+          "description": "End year of the academic year the row covers: 2025 = 2024-25. Loaded 2016-2025."
+        },
+        {
+          "name": "unitid",
+          "type": "BIGINT",
+          "description": "IPEDS unit ID: the stable identifier for a school across years. Filter on this, not on the name."
+        },
+        {
+          "name": "institution_name",
+          "type": "VARCHAR",
+          "description": "Official IPEDS name of the school (e.g. 'The University of Alabama'). Resolve user wording via institution_aliases; filter on unitid."
+        },
+        {
+          "name": "addr1_txt",
+          "type": "VARCHAR",
+          "description": "Codebook label: addr1_txt"
+        },
+        {
+          "name": "addr2_txt",
+          "type": "VARCHAR",
+          "description": "Codebook label: addr2_txt"
+        },
+        {
+          "name": "city_txt",
+          "type": "VARCHAR",
+          "description": "Codebook label: city_txt"
+        },
+        {
+          "name": "state_cd",
+          "type": "VARCHAR",
+          "enum_values": [
+            "AK",
+            "AL",
+            "AR",
+            "AZ",
+            "CA",
+            "CO",
+            "CT",
+            "DC",
+            "DE",
+            "FL",
+            "GA",
+            "HI",
+            "IA",
+            "ID",
+            "IL",
+            "IN",
+            "KS",
+            "KY",
+            "LA",
+            "MA",
+            "MD",
+            "ME",
+            "MI",
+            "MN",
+            "MO",
+            "MS",
+            "MT",
+            "NC",
+            "ND",
+            "NE",
+            "NH",
+            "NJ",
+            "NM",
+            "NV",
+            "NY",
+            "OH",
+            "OK",
+            "OR",
+            "PA",
+            "PR",
+            "RI",
+            "SC",
+            "SD",
+            "TN",
+            "TX",
+            "UT",
+            "VA",
+            "VI",
+            "VT",
+            "WA",
+            "WI",
+            "WV",
+            "WY"
+          ],
+          "description": "Codebook label: state_cd"
+        },
+        {
+          "name": "zip_text",
+          "type": "DOUBLE",
+          "description": "Codebook label: zip_text"
+        },
+        {
+          "name": "classificationcode",
+          "type": "BIGINT",
+          "description": "Codebook label: Classification Code"
+        },
+        {
+          "name": "classification_name",
+          "type": "VARCHAR",
+          "enum_values": [
+            "CCCAA",
+            "Independent",
+            "NAIA Division I",
+            "NAIA Division I ",
+            "NAIA Division II",
+            "NAIA Division II ",
+            "NCAA Division I without football",
+            "NCAA Division I-FBS",
+            "NCAA Division I-FCS",
+            "NCAA Division II with football",
+            "NCAA Division II without football",
+            "NCAA Division III with football",
+            "NCAA Division III without football",
+            "NCCAA Division I",
+            "NCCAA Division I ",
+            "NCCAA Division II",
+            "NCCAA Division II ",
+            "NJCAA Division I",
+            "NJCAA Division I ",
+            "NJCAA Division II",
+            "NJCAA Division II ",
+            "NJCAA Division III",
+            "NJCAA Division III ",
+            "NWAC",
+            "Other",
+            "Other ",
+            "USCAA"
+          ],
+          "description": "Athletic association and division, e.g. 'NCAA Division I-FBS'. Merged from 'classificationname' in the 2018-19 file."
+        },
+        {
+          "name": "classificationother",
+          "type": "VARCHAR",
+          "description": "Codebook label: Other Classification"
+        },
+        {
+          "name": "efmalecount",
+          "type": "BIGINT",
+          "description": "Full-time male undergraduates."
+        },
+        {
+          "name": "effemalecount",
+          "type": "BIGINT",
+          "description": "Full-time female undergraduates."
+        },
+        {
+          "name": "eftotalcount",
+          "type": "BIGINT",
+          "description": "Full-time undergraduates, total (= male + female)."
+        },
+        {
+          "name": "sector_cd",
+          "type": "BIGINT",
+          "description": "Codebook label: Sector Code"
+        },
+        {
+          "name": "sector_name",
+          "type": "VARCHAR",
+          "enum_values": [
+            "Private for-profit, 2-year",
+            "Private for-profit, 4-year or above",
+            "Private nonprofit, 2-year",
+            "Private nonprofit, 4-year or above",
+            "Public, 2-year",
+            "Public, 4-year or above",
+            "Sector Unknown"
+          ],
+          "description": "Institution type: public/private, nonprofit/for-profit, 4-year/2-year."
+        },
+        {
+          "name": "sportscode",
+          "type": "BIGINT",
+          "description": "Numeric code for the sport (same meaning as the sports name)."
+        },
+        {
+          "name": "partic_men",
+          "type": "DOUBLE",
+          "description": "Participants on the men's team in this sport (NULL if no men's team)."
+        },
+        {
+          "name": "partic_women",
+          "type": "DOUBLE",
+          "description": "Participants on the women's team in this sport (NULL if no women's team)."
+        },
+        {
+          "name": "partic_coed_men",
+          "type": "DOUBLE",
+          "description": "Men on the co-ed team in this sport."
+        },
+        {
+          "name": "partic_coed_women",
+          "type": "DOUBLE",
+          "description": "Women on the co-ed team in this sport."
+        },
+        {
+          "name": "sum_partic_men",
+          "type": "BIGINT",
+          "description": "Men in this sport, men's + co-ed team."
+        },
+        {
+          "name": "sum_partic_women",
+          "type": "BIGINT",
+          "description": "Women in this sport, women's + co-ed team."
+        },
+        {
+          "name": "opexpperpart_men",
+          "type": "DOUBLE",
+          "description": "Game-day operating expenses per participant, men's team, USD (average, not a total)."
+        },
+        {
+          "name": "opexpperteam_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: OPEXP. Per Team/Men"
+        },
+        {
+          "name": "opexpperpart_women",
+          "type": "DOUBLE",
+          "description": "Game-day operating expenses per participant, women's team, USD (average, not a total)."
+        },
+        {
+          "name": "opexpperteam_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: OPEXP. Per Team/Women"
+        },
+        {
+          "name": "total_opexp_menwomen",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total OPEXP. Men and Women"
+        },
+        {
+          "name": "opexpperpart_coed_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: OPEXP. Per Participant/Coed Men"
+        },
+        {
+          "name": "opexpperteam_coed_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: OPEXP. Per Team/Coed Men"
+        },
+        {
+          "name": "opexp_part_coed_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: OPEXP. Per Participant Women/Coed"
+        },
+        {
+          "name": "opexp_team_coed_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: OPEXP. Per Team Women/Coed"
+        },
+        {
+          "name": "total_opexp_coedteam",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total OPEXP. Coed Men/Coed Women"
+        },
+        {
+          "name": "sum_opexpperpart_men",
+          "type": "BIGINT",
+          "description": "Codebook label: Total OPEXP. Per Participant/Men/Coed Men"
+        },
+        {
+          "name": "sum_opexpperteam_men",
+          "type": "BIGINT",
+          "description": "Codebook label: Total OPEXP. Per Team/Men/Coed Men"
+        },
+        {
+          "name": "sum_opexpperpart_women",
+          "type": "BIGINT",
+          "description": "Codebook label: Total OPEXP. Per Participant/Women/Coed Women"
+        },
+        {
+          "name": "sum_opexpperteam_women",
+          "type": "BIGINT",
+          "description": "Codebook label: Total OPEXP. Per Team/Women/Coed Women"
+        },
+        {
+          "name": "total_opexp_inclcoed",
+          "type": "BIGINT",
+          "description": "Game-day operating expenses, all teams in this sport incl. co-ed, USD (a subset of total expenses)."
+        },
+        {
+          "name": "men_ftheadcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's HD Coach/Male/Full-Time"
+        },
+        {
+          "name": "men_ptheadcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's HD Coach/Male/Part-Time"
+        },
+        {
+          "name": "men_ftunivemploy_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's HD Coach/Male/FTEmp"
+        },
+        {
+          "name": "men_ptunivemploy_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's HD Coach/Male/PTEmp"
+        },
+        {
+          "name": "men_ftheadcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's HD Coach/Female/Full-Time"
+        },
+        {
+          "name": "men_ptheadcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's HD Coach/Female/Part-Time"
+        },
+        {
+          "name": "men_ftunivemploy_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's HD Coach/Female/FTEmp"
+        },
+        {
+          "name": "men_ptunivemploy_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's HD Coach/Female/PTEmp"
+        },
+        {
+          "name": "men_total_headcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # HD Coach/Men's Team"
+        },
+        {
+          "name": "women_fthdcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's HD Coach/Male/Full-Time"
+        },
+        {
+          "name": "women_pthdcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's HD Coach/Male/Part-Time"
+        },
+        {
+          "name": "women_ftunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's HD Coach/Male/FTEmp"
+        },
+        {
+          "name": "women_ptunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's HD Coach/Male/PTEmp"
+        },
+        {
+          "name": "women_fthdcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's HD Coach/Female/Full-Time"
+        },
+        {
+          "name": "women_pthdcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's HD Coach/Female/Part-Time"
+        },
+        {
+          "name": "women_ftunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's HD Coach/Female/FTEmp"
+        },
+        {
+          "name": "women_ptunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's HD Coach/Female/PTEmp"
+        },
+        {
+          "name": "women_total_hdcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # HD Coach/Women's Team"
+        },
+        {
+          "name": "coed_fthdcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed HD Coach/Male/Full-Time"
+        },
+        {
+          "name": "coed_pthdcoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed HD Coach/Male/Part-Time"
+        },
+        {
+          "name": "coed_ftunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed HD Coach/Male/FTEmp"
+        },
+        {
+          "name": "coed_ptunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed HD Coach/Male/PTEmp"
+        },
+        {
+          "name": "coed_fthdcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed HD Coach/Female/Full-Time"
+        },
+        {
+          "name": "coed_pthdcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed HD Coach/Female/Part-Time"
+        },
+        {
+          "name": "coed_ftunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed HD Coach/Female/FTEmp"
+        },
+        {
+          "name": "coed_ptunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed HD Coach/Female/PTEmp"
+        },
+        {
+          "name": "coed_total_hdcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total # Coed Team HD Coaches"
+        },
+        {
+          "name": "sum_fthdcoach_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Male HD Coaches/Men/Women/Coed/Full-Time"
+        },
+        {
+          "name": "sum_pthdcoach_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Male HD Coaches/Men/Women/Coed/Part-Time"
+        },
+        {
+          "name": "sum_ftunivemp_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Male HDCoaches/Men/Women/Coed/FTEmp"
+        },
+        {
+          "name": "sum_ptunivemp_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Male HD Coaches/Men/Women/Coed/PTEmp"
+        },
+        {
+          "name": "sum_fthdcoach_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Female HD Coaches/Men/Women/Coed/Full-Time"
+        },
+        {
+          "name": "sum_pthdcoach_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Female HD Coaches/Men/Women/Coed/Part-Time"
+        },
+        {
+          "name": "sum_ftunivemp_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Female HD Coaches/Men/Women/Coed/FTEmp"
+        },
+        {
+          "name": "sum_ptunivemp_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Female HD Coaches/Men/Women/Coed/PTEmp"
+        },
+        {
+          "name": "sum_total_hdcoach",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # HD Coaches/Men/Women/Coed Teams"
+        },
+        {
+          "name": "men_ftascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's Assist. Coach/Male/Full-Time"
+        },
+        {
+          "name": "men_ptascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's Assist. Coach/Male/Part-Time"
+        },
+        {
+          "name": "men_ftacunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's Assist. Coach/Male/FTEmp"
+        },
+        {
+          "name": "men_ptacunivemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's Assist. Coach/Male/PTEmp"
+        },
+        {
+          "name": "men_ftasstcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's Assist. Coach/Female/Full-Time"
+        },
+        {
+          "name": "men_ptasstcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's Assist. Coach/Female/Part-Time"
+        },
+        {
+          "name": "men_ftacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's Assist. Coach/Female/FTEmp"
+        },
+        {
+          "name": "men_ptacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Men's Assist. Coach/Female/PTEmp"
+        },
+        {
+          "name": "men_total_asstcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Number of Total Assist. Coaches in Men's Team"
+        },
+        {
+          "name": "women_ftascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's Assist. Coach/Male/Full-Time"
+        },
+        {
+          "name": "women_ptascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's Assist. Coach/Male/Part-Time"
+        },
+        {
+          "name": "women_ftacunemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's Assist. Coach/Male/FTEmp"
+        },
+        {
+          "name": "women_ptacunemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's Assist. Coach/Male/PTEmp"
+        },
+        {
+          "name": "women_ftastcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's Assist. Coach/Female/Full-Time"
+        },
+        {
+          "name": "women_ptastcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's Assist. Coach/Female/Part-Time"
+        },
+        {
+          "name": "womn_ftacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's Assist. Coach/Female/FTEmp"
+        },
+        {
+          "name": "womn_ptacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Women's Assist. Coach/Female/PTEmp"
+        },
+        {
+          "name": "women_total_astcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Number of Total Assist. Coaches in Women's Team"
+        },
+        {
+          "name": "coed_ftascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed Assist. Coach/Male/Full-Time"
+        },
+        {
+          "name": "coed_ptascoach_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed Assist. Coach/Male/Part-Time"
+        },
+        {
+          "name": "coed_ftacunemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed Assist. Coach/Male/FTEmp"
+        },
+        {
+          "name": "coed_ptacunemp_male",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed Assist. Coach/Male/PTEmp"
+        },
+        {
+          "name": "coed_ftastcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed Assist. Coach/Female/Full-Time"
+        },
+        {
+          "name": "coed_ptastcoach_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed Assist. Coach/Female/Part-Time"
+        },
+        {
+          "name": "coed_ftacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed Assist. Coach/Female/FTEmp"
+        },
+        {
+          "name": "coed_ptacunivemp_fem",
+          "type": "DOUBLE",
+          "description": "Codebook label: # Coed Assist. Coach/Female/PTEmp"
+        },
+        {
+          "name": "coed_total_astcoach",
+          "type": "DOUBLE",
+          "description": "Codebook label: Number of Total Assist. Coaches in Coed Team"
+        },
+        {
+          "name": "sum_ftascoach_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Male/Full-Time"
+        },
+        {
+          "name": "sum_ptascoach_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Male/Part-Time"
+        },
+        {
+          "name": "sum_ftacunivemp_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Male/FTEmp"
+        },
+        {
+          "name": "sum_ptacunivemp_male",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Male/PTEmp"
+        },
+        {
+          "name": "sum_ftascoach_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Female/Full-Time"
+        },
+        {
+          "name": "sum_ptascoach_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Female/Part-Time"
+        },
+        {
+          "name": "sum_ftacunivemp_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Female/FTEmp"
+        },
+        {
+          "name": "sum_ptacunivemp_fem",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coach/Men/Women/Coed/Female/PTEmp"
+        },
+        {
+          "name": "sum_total_asstcoach",
+          "type": "BIGINT",
+          "description": "Codebook label: Total # Assist. Coaches/Men/Women/Coed Teams"
+        },
+        {
+          "name": "rev_men",
+          "type": "DOUBLE",
+          "description": "Total revenues of the men's team in this sport, USD (NULL if no men's team)."
+        },
+        {
+          "name": "rev_women",
+          "type": "DOUBLE",
+          "description": "Total revenues of the women's team in this sport, USD (NULL if no women's team)."
+        },
+        {
+          "name": "total_rev_menwomen",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Revenues per Team for Men and Women"
+        },
+        {
+          "name": "rev_coed_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Revenues per Team for Coed Men"
+        },
+        {
+          "name": "rev_coed_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Revenues per Team for Coed Women"
+        },
+        {
+          "name": "total_rev_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Revenues per Team/ Coed Men/Coed Women"
+        },
+        {
+          "name": "revenue_menall",
+          "type": "BIGINT",
+          "description": "Revenues of the men's team plus co-ed men in this sport, USD."
+        },
+        {
+          "name": "revenue_womenall",
+          "type": "BIGINT",
+          "description": "Revenues of the women's team plus co-ed women in this sport, USD."
+        },
+        {
+          "name": "total_revenue_all",
+          "type": "BIGINT",
+          "description": "All team revenues in this sport, USD."
+        },
+        {
+          "name": "exp_men",
+          "type": "DOUBLE",
+          "description": "Total expenses of the men's team in this sport, USD (NULL if no men's team)."
+        },
+        {
+          "name": "exp_women",
+          "type": "DOUBLE",
+          "description": "Total expenses of the women's team in this sport, USD (NULL if no women's team)."
+        },
+        {
+          "name": "total_exp_menwomen",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Expenses per Team for Men and Women"
+        },
+        {
+          "name": "exp_coed_men",
+          "type": "DOUBLE",
+          "description": "Codebook label: Expenses per Team for Coed Men"
+        },
+        {
+          "name": "exp_coed_women",
+          "type": "DOUBLE",
+          "description": "Codebook label: Expenses per Team for Coed Women"
+        },
+        {
+          "name": "total_exp_coed",
+          "type": "DOUBLE",
+          "description": "Codebook label: Total Expenses per Team/Coed Men and Coed Women"
+        },
+        {
+          "name": "expense_menall",
+          "type": "BIGINT",
+          "description": "Expenses of the men's team plus co-ed men in this sport, USD (0 if none)."
+        },
+        {
+          "name": "expense_womenall",
+          "type": "BIGINT",
+          "description": "Expenses of the women's team plus co-ed women in this sport, USD (0 if none)."
+        },
+        {
+          "name": "total_expense_all",
+          "type": "BIGINT",
+          "description": "All team expenses in this sport (men, women, co-ed), USD."
+        },
+        {
+          "name": "sports",
+          "type": "VARCHAR",
+          "enum_values": [
+            "All Track Combined",
+            "Archery",
+            "Badminton",
+            "Baseball",
+            "Basketball",
+            "Beach Volleyball",
+            "Bowling",
+            "Cross Country",
+            "Diving",
+            "Equestrian",
+            "Fencing",
+            "Field Hockey",
+            "Football",
+            "Golf",
+            "Gymnastics",
+            "Ice Hockey",
+            "Lacrosse",
+            "Other Sports",
+            "Rifle",
+            "Rodeo",
+            "Rowing",
+            "Sailing",
+            "Skiing",
+            "Soccer",
+            "Softball",
+            "Squash",
+            "Swimming",
+            "Swimming and Diving",
+            "Swimming and Diving (combined)",
+            "Synchronized Swimming",
+            "Table Tennis",
+            "Tennis",
+            "Track and Field (Indoor)",
+            "Track and Field (Outdoor)",
+            "Track and Field and Cross Country (combined)",
+            "Track and Field, Indoor",
+            "Track and Field, Outdoor",
+            "Track and Field, X-Country",
+            "Volleyball",
+            "Water Polo",
+            "Weight Lifting",
+            "Wrestling"
+          ],
+          "description": "Sport name, e.g. 'Basketball', 'Football', 'Soccer'. Text; filter after get_enum_values."
+        },
+        {
+          "name": "opeid",
+          "type": "DOUBLE",
+          "description": "Office of Postsecondary Education ID. Only present from 2021-22 (survey_year 2022); NULL earlier."
+        }
+      ]
+    },
+    {
+      "name": "institution_aliases",
+      "description": "Alternate spellings of institution names -> unitid. Resolve user wording here before filtering.",
+      "columns": [
+        {
+          "name": "alias",
+          "type": "VARCHAR",
+          "description": "An alternate spelling of a school's name (lowercase variants of the official name). Match user wording here with ILIKE, then use unitid."
+        },
+        {
+          "name": "unitid",
+          "type": "BIGINT",
+          "description": "IPEDS unit ID: the stable identifier for a school across years. Filter on this, not on the name."
+        },
+        {
+          "name": "institution_name",
+          "type": "VARCHAR",
+          "description": "Official IPEDS name of the school (e.g. 'The University of Alabama'). Resolve user wording via institution_aliases; filter on unitid."
+        }
+      ]
+    },
+    {
+      "name": "v_proportionality",
+      "description": "Derived: female share of undergrads vs. female share of athletes (unduplicated) and the gap in percentage points, per school and year.",
+      "columns": [
+        {
+          "name": "unitid",
+          "type": "BIGINT",
+          "description": "IPEDS unit ID: the stable identifier for a school across years. Filter on this, not on the name."
+        },
+        {
+          "name": "institution_name",
+          "type": "VARCHAR",
+          "description": "Official IPEDS name of the school (e.g. 'The University of Alabama'). Resolve user wording via institution_aliases; filter on unitid."
+        },
+        {
+          "name": "survey_year",
+          "type": "BIGINT",
+          "description": "End year of the academic year the row covers: 2025 = 2024-25. Loaded 2016-2025."
+        },
+        {
+          "name": "female_undergrads",
+          "type": "BIGINT",
+          "description": "Full-time female undergraduates (effemalecount)."
+        },
+        {
+          "name": "total_undergrads",
+          "type": "BIGINT",
+          "description": "Full-time undergraduates (eftotalcount)."
+        },
+        {
+          "name": "female_athletes",
+          "type": "BIGINT",
+          "description": "Unduplicated female athletes, incl. co-ed teams (undup_ct_partic_women)."
+        },
+        {
+          "name": "total_athletes",
+          "type": "BIGINT",
+          "description": "Unduplicated athletes, men + women, incl. co-ed teams."
+        },
+        {
+          "name": "female_undergrad_pct",
+          "type": "DOUBLE",
+          "description": "Women's share of full-time undergraduates, percent."
+        },
+        {
+          "name": "female_athlete_pct",
+          "type": "DOUBLE",
+          "description": "Women's share of unduplicated athletes, percent."
+        },
+        {
+          "name": "gap_pp",
+          "type": "DOUBLE",
+          "description": "female_undergrad_pct minus female_athlete_pct, percentage points. Positive = women underrepresented among athletes (prong 1 only)."
+        }
+      ]
+    },
+    {
+      "name": "v_spending_by_gender",
+      "description": "Derived: men's vs. women's team expenses, total and per athlete, per school and year.",
+      "columns": [
+        {
+          "name": "unitid",
+          "type": "BIGINT",
+          "description": "IPEDS unit ID: the stable identifier for a school across years. Filter on this, not on the name."
+        },
+        {
+          "name": "institution_name",
+          "type": "VARCHAR",
+          "description": "Official IPEDS name of the school (e.g. 'The University of Alabama'). Resolve user wording via institution_aliases; filter on unitid."
+        },
+        {
+          "name": "survey_year",
+          "type": "BIGINT",
+          "description": "End year of the academic year the row covers: 2025 = 2024-25. Loaded 2016-2025."
+        },
+        {
+          "name": "men_expenses",
+          "type": "HUGEINT",
+          "description": "Total expenses of men's teams incl. co-ed men, ALL sports incl. football and basketball (summed from sports), USD."
+        },
+        {
+          "name": "women_expenses",
+          "type": "HUGEINT",
+          "description": "Total expenses of women's teams incl. co-ed women, all sports, USD."
+        },
+        {
+          "name": "women_expense_pct",
+          "type": "DOUBLE",
+          "description": "Women's share of team expenses (men + women), percent. Excludes unallocated expenses."
+        },
+        {
+          "name": "men_expense_per_athlete",
+          "type": "DOUBLE",
+          "description": "men_expenses / unduplicated male athletes, USD."
+        },
+        {
+          "name": "women_expense_per_athlete",
+          "type": "DOUBLE",
+          "description": "women_expenses / unduplicated female athletes, USD."
+        },
+        {
+          "name": "unallocated_expenses",
+          "type": "BIGINT",
+          "description": "Athletics expenses not allocated to any team or sex (tot_expense_all_notalloc), USD."
+        },
+        {
+          "name": "grand_total_expenses",
+          "type": "BIGINT",
+          "description": "All athletics expenses: men's + women's team expenses + unallocated (grnd_total_expense), USD."
+        }
+      ]
+    },
+    {
+      "name": "nil_facts",
+      "description": "Curated NIL and revenue-sharing figures from reports (Opendorse, College Sports Commission), with source, period, method note and URL for every row. Not EADA data.",
+      "columns": [
+        {
+          "name": "fact_id",
+          "type": "VARCHAR",
+          "enum_values": [
+            "csc-2025-08-corrected-value",
+            "csc-2025-12-cleared-deals",
+            "csc-2025-12-cleared-value",
+            "csc-2025-12-share-non-fb-mbb",
+            "csc-2025-12-unique-athletes",
+            "csc-2026-06-cleared-deals",
+            "csc-2026-06-cleared-value",
+            "house-settlement-revshare-cap",
+            "opendorse-revshare-fb-mbb-share",
+            "opendorse-revshare-total",
+            "opendorse-revshare-womens-share",
+            "opendorse-womens-deal-applications"
+          ],
+          "description": "Stable id of the figure, e.g. 'csc-2025-12-cleared-value'."
+        },
+        {
+          "name": "source_org",
+          "type": "VARCHAR",
+          "enum_values": [
+            "College Sports Commission",
+            "House v. NCAA settlement",
+            "Opendorse"
+          ],
+          "description": "Who published the figure."
+        },
+        {
+          "name": "report",
+          "type": "VARCHAR",
+          "enum_values": [
+            "Annual NIL report (2025)",
+            "NIL Data Report (July 2026)",
+            "NIL Deal Flow Report (Nov-Dec 2025)",
+            "NIL Deal Flow Report (first; corrected)",
+            "NIL at Four annual report (2025)",
+            "Revenue-sharing / marketplace data (reported by Front Office Sports)",
+            "Revenue-sharing projection (reported by Front Office Sports)",
+            "Settlement terms (reported)"
+          ],
+          "description": "The report or release the figure appears in."
+        },
+        {
+          "name": "source_type",
+          "type": "VARCHAR",
+          "enum_values": [
+            "industry_report",
+            "official_body",
+            "policy_document"
+          ],
+          "description": "official_body, industry_report, policy_document, news or estimate."
+        },
+        {
+          "name": "retrieved_via",
+          "type": "VARCHAR",
+          "enum_values": [
+            "secondary: Basketball Insiders",
+            "secondary: Basketball Insiders / JD Supra coverage",
+            "secondary: Front Office Sports",
+            "secondary: NIL Newsstand repost of CSC release",
+            "secondary: On3"
+          ],
+          "description": "'primary' if read in the original report; otherwise where it was read."
+        },
+        {
+          "name": "published",
+          "type": "VARCHAR",
+          "enum_values": [
+            "2025",
+            "2025-07",
+            "2025-09-05",
+            "2026-01-13",
+            "2026-07",
+            "unverified (page header date is not the publication date)"
+          ],
+          "description": "Publication date of the report (from the document itself)."
+        },
+        {
+          "name": "period_covered",
+          "type": "VARCHAR",
+          "enum_values": [
+            "2025-06-11 to 2025-08-31",
+            "2025-06-11 to 2025-12-31",
+            "2025-26",
+            "2026-05-01 to 2026-06-30",
+            "unclear"
+          ],
+          "description": "The period the figure describes. Always state it with the number."
+        },
+        {
+          "name": "metric",
+          "type": "VARCHAR",
+          "enum_values": [
+            "estimated revenue-sharing payments to athletes nationally",
+            "maximum a school may share directly with athletes per year",
+            "projected share of collegiate revenue-sharing dollars to football and men's basketball",
+            "projected share of revenue-sharing dollars directed to women's sports",
+            "share of athletes with a cleared deal who play a sport other than football or men's basketball",
+            "share of deal applications on Opendorse submitted by women's sports athletes",
+            "third-party NIL deals cleared via NIL Go (cumulative)",
+            "third-party NIL deals cleared via NIL Go (in period)",
+            "total value of third-party NIL deals cleared (corrected)",
+            "total value of third-party NIL deals cleared via NIL Go (cumulative)",
+            "total value of third-party NIL deals cleared via NIL Go (in period)",
+            "unique athletes with at least one cleared deal"
+          ],
+          "description": "What is measured."
+        },
+        {
+          "name": "sport",
+          "type": "VARCHAR",
+          "enum_values": [
+            "all",
+            "football and men's basketball",
+            "other than football and men's basketball",
+            "women's sports"
+          ],
+          "description": "Sport the figure covers ('all' if not sport-specific)."
+        },
+        {
+          "name": "gender",
+          "type": "VARCHAR",
+          "enum_values": [
+            "all",
+            "men",
+            "women"
+          ],
+          "description": "Gender the figure covers."
+        },
+        {
+          "name": "value_low",
+          "type": "DOUBLE",
+          "description": "The figure, or the low end of a range."
+        },
+        {
+          "name": "value_high",
+          "type": "DOUBLE",
+          "description": "The figure, or the high end of a range (equal to value_low unless the source gives a range)."
+        },
+        {
+          "name": "unit",
+          "type": "VARCHAR",
+          "enum_values": [
+            "USD millions",
+            "athletes",
+            "deals",
+            "percent"
+          ],
+          "description": "percent, USD millions, deals or athletes."
+        },
+        {
+          "name": "method_note",
+          "type": "VARCHAR",
+          "enum_values": [
+            "CSC clears third-party NIL deals worth $600 or more for Division I athletes; counts only deals submitted to NIL Go",
+            "Estimate ('collegiate NIL' in Opendorse's terms)",
+            "Initially reported as $79.8M (the value of all deals in the system, including pending); CSC corrected it the next day and blamed a Deloitte clerical error",
+            "No gender breakdown given",
+            "Projection from Opendorse platform data; Opendorse is an NIL marketplace with a commercial interest. Led by women's basketball",
+            "Projection in Opendorse's annual report; platform data",
+            "Replace with the settlement document itself in data/policy/",
+            "Share of 500k+ applications on Opendorse's own marketplace, not of compensation",
+            "Share of athletes, not of dollars; includes men's and women's sports",
+            "Third-party deals only; excludes school revenue sharing",
+            "Two-month period, not cumulative"
+          ],
+          "description": "How the source produced the figure and what it does NOT measure. Read before using the number."
+        },
+        {
+          "name": "url",
+          "type": "VARCHAR",
+          "enum_values": [
+            "https://frontofficesports.com/college-hoops-accounts-for-nearly-30-of-revenue-sharing-payments/",
+            "https://frontofficesports.com/nil-go-opendorse-house-settlement/",
+            "https://www.basketballinsiders.com/?p=362195",
+            "https://www.nilnewsstand.com/updates/college-sports-commission-nil-data-report-2026",
+            "https://www.nilnewsstand.com/updates/college-sports-commission-nil-deal-report-december-2025",
+            "https://www.on3.com/teams/texas-longhorns/news/opendorses-annual-report-provides-interesting-national-data-about-nil"
+          ],
+          "description": "Where the figure can be checked."
+        },
+        {
+          "name": "verified_against_primary",
+          "type": "BOOLEAN",
+          "description": "true once checked in the original report; false means seen only in secondary coverage, so say so."
+        }
+      ]
+    }
+  ],
+  "gotchas": [
+    {
+      "topic": "institution money totals exclude football and basketball",
+      "note": "In the institutions table, il_revenue_*, il_expense_*, il_total_rev*, il_total_exp* and il_total_revenue_all / il_total_expense_all cover ALL SPORTS EXCEPT FOOTBALL AND BASKETBALL, even though the codebook labels them 'Total ... per Team'. They equal the sum of the sports rows minus Football and Basketball for every school-year. For a school's full men's or women's spending, sum the sports table or use v_spending_by_gender. (il_*partic* and il_*opexp* columns are full totals.)",
+      "columns": [
+        "il_expense_menall",
+        "il_expense_womenall",
+        "il_total_expense_all",
+        "il_revenue_menall",
+        "il_revenue_womenall",
+        "il_total_revenue_all"
+      ]
+    },
+    {
+      "topic": "unallocated money",
+      "note": "Much athletics spending isn't assigned to any team (facilities, administration, some staff): tot_expense_all_notalloc. Sum of team expenses + not-allocated = grand_total_expense. Men's vs. women's comparisons cover team expenses only; say so, and give the unallocated amount when it matters.",
+      "columns": [
+        "tot_expense_all_notalloc",
+        "tot_revenue_all_notalloc",
+        "grnd_total_expense",
+        "grnd_total_revenue"
+      ]
+    },
+    {
+      "topic": "duplicated participants",
+      "note": "Sport-level participation counts an athlete once per team, so an athlete on three teams counts three times (sum_partic_*, il_sum_partic_*). For institution-wide shares (proportionality) and per-athlete figures, use the unduplicated counts undup_ct_partic_men / undup_ct_partic_women, as v_proportionality does.",
+      "columns": [
+        "undup_ct_partic_men",
+        "undup_ct_partic_women",
+        "sum_partic_men",
+        "sum_partic_women",
+        "il_sum_partic_men",
+        "il_sum_partic_women"
+      ]
+    },
+    {
+      "topic": "co-ed teams",
+      "note": "Co-ed team participants are reported separately (partic_coed_men / partic_coed_women; rev_coed_*, exp_coed_*). Columns ending in _menall / _womenall and sum_partic_* INCLUDE co-ed members of that sex; partic_men / exp_men etc. do not. The unduplicated counts include co-ed members. Say whether a figure includes co-ed teams.",
+      "columns": [
+        "partic_coed_men",
+        "partic_coed_women",
+        "expense_menall",
+        "expense_womenall",
+        "revenue_menall",
+        "revenue_womenall"
+      ]
+    },
+    {
+      "topic": "proportionality gap",
+      "note": "Not a column. Use the view v_proportionality: female share of full-time undergraduates minus female share of (unduplicated) athletes, in percentage points. A positive gap means women are underrepresented among athletes. This is prong 1 of the three-part test only; it does not establish compliance or non-compliance.",
+      "columns": [
+        "v_proportionality.gap_pp"
+      ]
+    },
+    {
+      "topic": "enrollment",
+      "note": "efmalecount / effemalecount / eftotalcount are full-time undergraduates (the population EADA reports under 20 U.S.C. 1092(g); codebook labels are just 'Total Men' / 'Total Women' / 'Grand Total'). eftotalcount = efmalecount + effemalecount in every row. Not total enrollment.",
+      "columns": [
+        "efmalecount",
+        "effemalecount",
+        "eftotalcount"
+      ]
+    },
+    {
+      "topic": "institution names",
+      "note": "Names are official IPEDS names (e.g. 'University of California-Berkeley', 'The University of Alabama'). Resolve user wording through the institution_aliases table before filtering; filter on unitid afterwards.",
+      "columns": [
+        "unitid",
+        "institution_name"
+      ]
+    },
+    {
+      "topic": "years",
+      "note": "survey_year is the END of the academic year: 2025 means 2024-25 (the Department of Education's own label for the file). Loaded: 2016-2025 (2015-16 to 2024-25). 2021 (2020-21) is the COVID year with ~200 fewer schools reporting; don't call a 2020-to-2021 drop a trend. EADA trails real time, so the latest year predates revenue sharing (2025-26).",
+      "columns": [
+        "survey_year"
+      ]
+    },
+    {
+      "topic": "revenue vs expenses",
+      "note": "Revenue and expense columns are separate. About 61% of school-years report grand total revenue exactly equal to expenses (institutional support fills the gap), so revenue minus expenses is NOT a measure of profit. opexp* columns are game-day operating expenses only, a subset of total expenses (exp_*, expense_*); per-participant and per-team opexp columns are averages, not totals.",
+      "columns": [
+        "exp_men",
+        "exp_women",
+        "rev_men",
+        "rev_women",
+        "opexpperpart_men",
+        "opexpperpart_women",
+        "total_opexp_inclcoed"
+      ]
+    },
+    {
+      "topic": "zero vs missing",
+      "note": "The sports table has only sponsored sports: rows with no participants were dropped at build time (the 2019-20 file listed unsponsored sports with zeros; other years never did). So a missing school+sport row means the sport isn't sponsored. Within a row, partic_men / exp_men / rev_men (and the women's equivalents) are NULL when that sport has no team of that sex; the _menall / _womenall and sum_ columns are 0 instead.",
+      "columns": [
+        "partic_men",
+        "partic_women",
+        "partic_coed_men",
+        "partic_coed_women",
+        "exp_men",
+        "exp_women"
+      ]
+    },
+    {
+      "topic": "sport names",
+      "note": "Use the sports column (text) to filter, after get_enum_values. Track and swimming are reported either combined ('Track and Field and Cross Country (combined)', 'Swimming and Diving (combined)') or split, depending on the school; count both forms. 'Other Sports' lumps unlisted sports.",
+      "columns": [
+        "sports",
+        "sportscode"
+      ]
+    },
+    {
+      "topic": "no conferences",
+      "note": "EADA has no conference column. classification_name gives the division (e.g. 'NCAA Division I-FBS', 'NCAA Division III with football', 'NJCAA Division I'). Some values have trailing spaces; use TRIM or ILIKE.",
+      "columns": [
+        "classification_name",
+        "classificationcode"
+      ]
+    },
+    {
+      "topic": "NIL is not in EADA",
+      "note": "EADA records institutional athletics spending. Third-party NIL deals never appear here, and revenue-sharing payments are not in the years loaded. Use the nil_facts table for NIL figures and say which money flow each number belongs to.",
+      "columns": [
+        "nil_facts.*"
+      ]
+    }
+  ]
+}

@@ -30,11 +30,13 @@ DB_PATH = DATA / "eada.duckdb"
 MAPPINGS_PATH = DATA / "eada_mappings.json"
 MAX_ENUM_VALUES = 60
 
-# TODO after --inspect: which raw files make which table. Patterns match file names, case-insensitive.
-# The views in sql/views.sql expect an `institutions` table with one row per school per year.
+# Which raw files make which table. Patterns match file names, case-insensitive.
+# Checked with --inspect on 2019-20..2024-25 (download_eada.py). Despite its name, Schools.xlsx is
+# the SPORT-level file (one row per school, year and sport: sportscode, sports); InstLevel.xlsx has
+# one row per school per year.
 FILE_TABLES = {
-    "institutions": ["*inst*", "*school*"],
-    "sports": ["*sport*"],
+    "institutions": ["instlevel*"],
+    "sports": ["schools*"],
 }
 
 # TODO after --inspect: the raw names (normalised: lowercase, underscores) of the columns every
@@ -42,6 +44,7 @@ FILE_TABLES = {
 STANDARD_NAMES = {
     "unitid": ["unitid", "unit_id"],
     "institution_name": ["institution_name", "instnm", "inst_name"],
+    "classification_name": ["classification_name", "classificationname"],  # 2018-19 file drops the underscore
 }
 
 TABLE_DESCRIPTIONS = {
@@ -82,6 +85,36 @@ def inspect() -> None:
         print(", ".join(normalize_column(c) for c in df.columns))
 
 
+def codebook_labels() -> dict[str, dict[str, str]]:
+    """{table: {column: label}} from data/eada_codebook.csv, the variable tables of the EADA
+    codebooks (InstlevelDataDoc / SchoolsDoc .doc in each year's zip), extracted cell by cell
+    with Word. Labels only differ cosmetically between years, so the latest year's wins."""
+    path = DATA / "eada_codebook.csv"
+    if not path.exists():
+        print(f"warning: {path.name} missing, columns get no codebook labels")
+        return {}
+    labels: dict[str, dict[str, str]] = {}
+    for row in pd.read_csv(path).sort_values("survey_year").itertuples():
+        labels.setdefault(row.file, {})[normalize_column(row.variable)] = f"Codebook label: {row.label}"
+    return labels
+
+
+PARTIC_COLUMNS =["partic_men", "partic_women", "partic_coed_men", "partic_coed_women"]
+
+
+def drop_unsponsored(df: pd.DataFrame, year: str) -> pd.DataFrame:
+    """Drop sport rows with no participants in any column.
+
+    Decision: the 2019-20 file lists sports schools don't sponsor (44,556 all-zero rows of 62,168);
+    every other year lists sponsored sports only. Dropping them at build time makes "a row = a team"
+    true in every year, so team counts don't jump in 2019-20. A no-op in the other years."""
+    has_participants = df[PARTIC_COLUMNS].fillna(0).sum(axis=1) > 0
+    dropped = int((~has_participants).sum())
+    if dropped:
+        print(f"  {year}: dropped {dropped:,} sport rows with no participants (unsponsored)")
+    return df[has_participants]
+
+
 def load_tables(db: duckdb.DuckDBPyConnection) -> list[str]:
     tables = []
     files = raw_files()
@@ -95,13 +128,17 @@ def load_tables(db: duckdb.DuckDBPyConnection) -> list[str]:
                     found = next((c for c in candidates if c in df.columns), None)
                     if found and found != standard:
                         df = df.rename(columns={found: standard})
+                df = df.copy()  # read_excel leaves wide frames fragmented; insert() warns per file otherwise
                 df.insert(0, "survey_year", int(year) if year.isdigit() else year)
+                if table == "sports":
+                    df = drop_unsponsored(df, year)
                 frames.append(df)
         if not frames:
             print(f"warning: no raw files matched {table} {patterns}")
             continue
         # Columns that change between years stay as separate columns, NULL in the other years.
-        # TODO: map renamed columns onto one name in STANDARD_NAMES, and note it in column_notes.json.
+        # Renamed columns are mapped onto one name in STANDARD_NAMES (2015-16..2024-25: only
+        # classification_name); recheck with --inspect when adding years.
         combined = pd.concat(frames, ignore_index=True, sort=False)
         db.register("frame", combined)
         db.execute(f"CREATE TABLE {table} AS SELECT * FROM frame")
@@ -189,13 +226,25 @@ def main() -> None:
     tables.append("nil_facts")
 
     notes = json.loads((DATA / "column_notes.json").read_text())
+    codebook = codebook_labels()
     mappings = {"tables": [], "gotchas": notes.get("gotchas", [])}
     for table in tables:
         columns = describe(db, table)
-        descriptions = {} if "--no-llm" in sys.argv else model_descriptions(table, columns)
+        labels = codebook.get(table, {})
+        # The model only describes columns with neither a note nor a codebook label (none, as of
+        # 2015-16..2024-25): guessing from names is how you get "per Team" totals that silently
+        # exclude football. A new column shows up here first; add a note for it instead.
+        missing = [c for c in columns if c["name"] not in notes.get("columns", {}) and c["name"] not in labels]
+        if missing:
+            print(f"  {table}: no note or codebook label for {[c['name'] for c in missing]}")
+        descriptions = model_descriptions(table, missing) if missing and "--no-llm" not in sys.argv else {}
         for column in columns:
-            # Hand-written notes from the data dictionary win over the model's guess
-            column["description"] = notes.get("columns", {}).get(column["name"]) or descriptions.get(column["name"], "")
+            # Hand-written notes (checked against the data) > official codebook label > model's guess
+            column["description"] = (
+                notes.get("columns", {}).get(column["name"])
+                or labels.get(column["name"])
+                or descriptions.get(column["name"], "")
+            )
             column.pop("samples", None)
         mappings["tables"].append({"name": table, "description": TABLE_DESCRIPTIONS.get(table, ""), "columns": columns})
     db.close()

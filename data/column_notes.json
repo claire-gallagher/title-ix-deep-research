@@ -1,40 +1,65 @@
 {
-  "_about": "Hand-written notes from the EADA data dictionary, merged into data/eada_mappings.json by build_eada.py. The Data Researcher reads them with read_mappings. Fill 'columns' with the REAL column names after `uv run build_eada.py --inspect`. Every entry below is a TODO until checked against the data dictionary.",
+  "_about": "Hand-written notes from the EADA codebooks (InstlevelDataDoc<year>.doc, SchoolsDoc<year>.doc in data/raw/eada/<year>/), merged into data/eada_mappings.json by build_eada.py. The Data Researcher reads them with read_mappings. Checked against the data for 2015-16..2024-25 on 2026-11-09. Column descriptions here override the model-written ones; keys are bare column names (institutions and sports share none of the money columns).",
   "gotchas": [
     {
+      "topic": "institution money totals exclude football and basketball",
+      "note": "In the institutions table, il_revenue_*, il_expense_*, il_total_rev*, il_total_exp* and il_total_revenue_all / il_total_expense_all cover ALL SPORTS EXCEPT FOOTBALL AND BASKETBALL, even though the codebook labels them 'Total ... per Team'. They equal the sum of the sports rows minus Football and Basketball for every school-year. For a school's full men's or women's spending, sum the sports table or use v_spending_by_gender. (il_*partic* and il_*opexp* columns are full totals.)",
+      "columns": ["il_expense_menall", "il_expense_womenall", "il_total_expense_all", "il_revenue_menall", "il_revenue_womenall", "il_total_revenue_all"]
+    },
+    {
+      "topic": "unallocated money",
+      "note": "Much athletics spending isn't assigned to any team (facilities, administration, some staff): tot_expense_all_notalloc. Sum of team expenses + not-allocated = grand_total_expense. Men's vs. women's comparisons cover team expenses only; say so, and give the unallocated amount when it matters.",
+      "columns": ["tot_expense_all_notalloc", "tot_revenue_all_notalloc", "grnd_total_expense", "grnd_total_revenue"]
+    },
+    {
       "topic": "duplicated participants",
-      "note": "Sport-level participation counts an athlete once per team, so an athlete on three teams counts three times. For institution-wide shares (proportionality), use the unduplicated count if the file provides one.",
-      "columns": ["TODO"]
+      "note": "Sport-level participation counts an athlete once per team, so an athlete on three teams counts three times (sum_partic_*, il_sum_partic_*). For institution-wide shares (proportionality) and per-athlete figures, use the unduplicated counts undup_ct_partic_men / undup_ct_partic_women, as v_proportionality does.",
+      "columns": ["undup_ct_partic_men", "undup_ct_partic_women", "sum_partic_men", "sum_partic_women", "il_sum_partic_men", "il_sum_partic_women"]
     },
     {
       "topic": "co-ed teams",
-      "note": "Co-ed team participants are reported separately from men's and women's teams. Say whether a figure includes them.",
-      "columns": ["TODO"]
+      "note": "Co-ed team participants are reported separately (partic_coed_men / partic_coed_women; rev_coed_*, exp_coed_*). Columns ending in _menall / _womenall and sum_partic_* INCLUDE co-ed members of that sex; partic_men / exp_men etc. do not. The unduplicated counts include co-ed members. Say whether a figure includes co-ed teams.",
+      "columns": ["partic_coed_men", "partic_coed_women", "expense_menall", "expense_womenall", "revenue_menall", "revenue_womenall"]
     },
     {
       "topic": "proportionality gap",
-      "note": "Not a column. Use the view v_proportionality: female share of undergraduates minus female share of athletes, in percentage points. A positive gap means women are underrepresented among athletes. This is prong 1 of the three-part test only; it does not establish compliance or non-compliance.",
+      "note": "Not a column. Use the view v_proportionality: female share of full-time undergraduates minus female share of (unduplicated) athletes, in percentage points. A positive gap means women are underrepresented among athletes. This is prong 1 of the three-part test only; it does not establish compliance or non-compliance.",
       "columns": ["v_proportionality.gap_pp"]
     },
     {
+      "topic": "enrollment",
+      "note": "efmalecount / effemalecount / eftotalcount are full-time undergraduates (the population EADA reports under 20 U.S.C. 1092(g); codebook labels are just 'Total Men' / 'Total Women' / 'Grand Total'). eftotalcount = efmalecount + effemalecount in every row. Not total enrollment.",
+      "columns": ["efmalecount", "effemalecount", "eftotalcount"]
+    },
+    {
       "topic": "institution names",
-      "note": "Names are official IPEDS names (e.g. 'University of California-Berkeley'). Resolve user wording through the institution_aliases table before filtering; filter on unitid afterwards.",
-      "columns": ["TODO"]
+      "note": "Names are official IPEDS names (e.g. 'University of California-Berkeley', 'The University of Alabama'). Resolve user wording through the institution_aliases table before filtering; filter on unitid afterwards.",
+      "columns": ["unitid", "institution_name"]
     },
     {
       "topic": "years",
-      "note": "survey_year is the reporting year as labelled by the data file (TODO: confirm whether it is the academic year's start or end). EADA trails real time, so the latest year predates revenue sharing (2025-26).",
+      "note": "survey_year is the END of the academic year: 2025 means 2024-25 (the Department of Education's own label for the file). Loaded: 2016-2025 (2015-16 to 2024-25). 2021 (2020-21) is the COVID year with ~200 fewer schools reporting; don't call a 2020-to-2021 drop a trend. EADA trails real time, so the latest year predates revenue sharing (2025-26).",
       "columns": ["survey_year"]
     },
     {
       "topic": "revenue vs expenses",
-      "note": "Revenue and expense columns are separate, and some figures are per participant rather than totals. Check which before comparing.",
-      "columns": ["TODO"]
+      "note": "Revenue and expense columns are separate. About 61% of school-years report grand total revenue exactly equal to expenses (institutional support fills the gap), so revenue minus expenses is NOT a measure of profit. opexp* columns are game-day operating expenses only, a subset of total expenses (exp_*, expense_*); per-participant and per-team opexp columns are averages, not totals.",
+      "columns": ["exp_men", "exp_women", "rev_men", "rev_women", "opexpperpart_men", "opexpperpart_women", "total_opexp_inclcoed"]
     },
     {
       "topic": "zero vs missing",
-      "note": "A school that doesn't sponsor a sport is different from one that didn't report a value. TODO: document how each appears in the files.",
-      "columns": ["TODO"]
+      "note": "The sports table has only sponsored sports: rows with no participants were dropped at build time (the 2019-20 file listed unsponsored sports with zeros; other years never did). So a missing school+sport row means the sport isn't sponsored. Within a row, partic_men / exp_men / rev_men (and the women's equivalents) are NULL when that sport has no team of that sex; the _menall / _womenall and sum_ columns are 0 instead.",
+      "columns": ["partic_men", "partic_women", "partic_coed_men", "partic_coed_women", "exp_men", "exp_women"]
+    },
+    {
+      "topic": "sport names",
+      "note": "Use the sports column (text) to filter, after get_enum_values. Track and swimming are reported either combined ('Track and Field and Cross Country (combined)', 'Swimming and Diving (combined)') or split, depending on the school; count both forms. 'Other Sports' lumps unlisted sports.",
+      "columns": ["sports", "sportscode"]
+    },
+    {
+      "topic": "no conferences",
+      "note": "EADA has no conference column. classification_name gives the division (e.g. 'NCAA Division I-FBS', 'NCAA Division III with football', 'NJCAA Division I'). Some values have trailing spaces; use TRIM or ILIKE.",
+      "columns": ["classification_name", "classificationcode"]
     },
     {
       "topic": "NIL is not in EADA",
@@ -43,6 +68,93 @@
     }
   ],
   "columns": {
-    "_example_TODO": "column_name: one-sentence description written from the data dictionary; overrides the model-written one"
+    "institution_name": "Official IPEDS name of the school (e.g. 'The University of Alabama'). Resolve user wording via institution_aliases; filter on unitid.",
+    "survey_year":"End year of the academic year the row covers: 2025 = 2024-25. Loaded 2016-2025.",
+    "alias": "An alternate spelling of a school's name (lowercase variants of the official name). Match user wording here with ILIKE, then use unitid.",
+    "female_undergrads": "Full-time female undergraduates (effemalecount).",
+    "total_undergrads": "Full-time undergraduates (eftotalcount).",
+    "female_athletes": "Unduplicated female athletes, incl. co-ed teams (undup_ct_partic_women).",
+    "total_athletes": "Unduplicated athletes, men + women, incl. co-ed teams.",
+    "female_undergrad_pct": "Women's share of full-time undergraduates, percent.",
+    "female_athlete_pct": "Women's share of unduplicated athletes, percent.",
+    "gap_pp": "female_undergrad_pct minus female_athlete_pct, percentage points. Positive = women underrepresented among athletes (prong 1 only).",
+    "men_expenses": "Total expenses of men's teams incl. co-ed men, ALL sports incl. football and basketball (summed from sports), USD.",
+    "women_expenses": "Total expenses of women's teams incl. co-ed women, all sports, USD.",
+    "women_expense_pct": "Women's share of team expenses (men + women), percent. Excludes unallocated expenses.",
+    "men_expense_per_athlete": "men_expenses / unduplicated male athletes, USD.",
+    "women_expense_per_athlete": "women_expenses / unduplicated female athletes, USD.",
+    "unallocated_expenses": "Athletics expenses not allocated to any team or sex (tot_expense_all_notalloc), USD.",
+    "grand_total_expenses": "All athletics expenses: men's + women's team expenses + unallocated (grnd_total_expense), USD.",
+    "fact_id": "Stable id of the figure, e.g. 'csc-2025-12-cleared-value'.",
+    "source_org": "Who published the figure.",
+    "report": "The report or release the figure appears in.",
+    "source_type": "official_body, industry_report, policy_document, news or estimate.",
+    "retrieved_via": "'primary' if read in the original report; otherwise where it was read.",
+    "published": "Publication date of the report (from the document itself).",
+    "period_covered": "The period the figure describes. Always state it with the number.",
+    "metric": "What is measured.",
+    "sport": "Sport the figure covers ('all' if not sport-specific).",
+    "gender": "Gender the figure covers.",
+    "value_low": "The figure, or the low end of a range.",
+    "value_high": "The figure, or the high end of a range (equal to value_low unless the source gives a range).",
+    "unit": "percent, USD millions, deals or athletes.",
+    "method_note": "How the source produced the figure and what it does NOT measure. Read before using the number.",
+    "url": "Where the figure can be checked.",
+    "verified_against_primary": "true once checked in the original report; false means seen only in secondary coverage, so say so.",
+    "unitid":"IPEDS unit ID: the stable identifier for a school across years. Filter on this, not on the name.",
+    "opeid": "Office of Postsecondary Education ID. Only present from 2021-22 (survey_year 2022); NULL earlier.",
+    "classification_name": "Athletic association and division, e.g. 'NCAA Division I-FBS'. Merged from 'classificationname' in the 2018-19 file.",
+    "sector_name": "Institution type: public/private, nonprofit/for-profit, 4-year/2-year.",
+    "efmalecount": "Full-time male undergraduates.",
+    "effemalecount": "Full-time female undergraduates.",
+    "eftotalcount": "Full-time undergraduates, total (= male + female).",
+    "undup_ct_partic_men": "Unduplicated count of male athletes on men's and co-ed teams (each athlete once). Use for proportionality and per-athlete figures.",
+    "undup_ct_partic_women": "Unduplicated count of female athletes on women's and co-ed teams (each athlete once). Use for proportionality and per-athlete figures.",
+    "studentaid_men": "Athletically related student aid to men's teams, USD, the academic year.",
+    "studentaid_women": "Athletically related student aid to women's teams, USD, the academic year.",
+    "studentaid_coed": "Athletically related student aid to co-ed teams, USD.",
+    "stuaid_men_ratio": "Men's teams' share of athletic student aid, in percent (0-100; men + women + co-ed = 100).",
+    "stuaid_women_ratio": "Women's teams' share of athletic student aid, in percent (0-100; men + women + co-ed = 100).",
+    "recruitexp_men": "Recruiting expenses for men's teams, USD.",
+    "recruitexp_women": "Recruiting expenses for women's teams, USD.",
+    "hdcoach_salary_men": "Average annual institutional salary per head coach of men's teams, USD.",
+    "hdcoach_salary_women": "Average annual institutional salary per head coach of women's teams, USD.",
+    "hdcoach_sal_fte_men": "Average salary per full-time-equivalent head coach of men's teams, USD.",
+    "hdcoach_sal_fte_womn": "Average salary per full-time-equivalent head coach of women's teams, USD.",
+    "ascoach_salary_men": "Average annual salary per assistant coach of men's teams, USD.",
+    "ascoach_salary_women": "Average annual salary per assistant coach of women's teams, USD.",
+    "tot_expense_all_notalloc": "Athletics expenses not allocated to any team or sex (facilities, administration...), USD.",
+    "tot_revenue_all_notalloc": "Athletics revenues not allocated to any team or sex, USD.",
+    "grnd_total_expense": "Grand total athletics expenses: all team expenses + not-allocated expenses, USD.",
+    "grnd_total_revenue": "Grand total athletics revenues: all team revenues + not-allocated revenues, USD.",
+    "il_expense_menall": "Expenses of men's and co-ed men's teams in all sports EXCEPT football and basketball, USD.",
+    "il_expense_womenall": "Expenses of women's and co-ed women's teams in all sports EXCEPT football and basketball, USD.",
+    "il_total_expense_all": "Team expenses, all sports EXCEPT football and basketball, USD.",
+    "il_revenue_menall": "Revenues of men's and co-ed men's teams in all sports EXCEPT football and basketball, USD.",
+    "il_revenue_womenall": "Revenues of women's and co-ed women's teams in all sports EXCEPT football and basketball, USD.",
+    "il_total_revenue_all": "Team revenues, all sports EXCEPT football and basketball, USD.",
+    "il_sum_partic_men": "Male participants summed over teams, incl. co-ed (duplicated: one athlete per team they're on).",
+    "il_sum_partic_women": "Female participants summed over teams, incl. co-ed (duplicated: one athlete per team they're on).",
+    "sports": "Sport name, e.g. 'Basketball', 'Football', 'Soccer'. Text; filter after get_enum_values.",
+    "sportscode": "Numeric code for the sport (same meaning as the sports name).",
+    "partic_men": "Participants on the men's team in this sport (NULL if no men's team).",
+    "partic_women": "Participants on the women's team in this sport (NULL if no women's team).",
+    "partic_coed_men": "Men on the co-ed team in this sport.",
+    "partic_coed_women": "Women on the co-ed team in this sport.",
+    "sum_partic_men": "Men in this sport, men's + co-ed team.",
+    "sum_partic_women": "Women in this sport, women's + co-ed team.",
+    "exp_men": "Total expenses of the men's team in this sport, USD (NULL if no men's team).",
+    "exp_women": "Total expenses of the women's team in this sport, USD (NULL if no women's team).",
+    "expense_menall": "Expenses of the men's team plus co-ed men in this sport, USD (0 if none).",
+    "expense_womenall": "Expenses of the women's team plus co-ed women in this sport, USD (0 if none).",
+    "total_expense_all": "All team expenses in this sport (men, women, co-ed), USD.",
+    "rev_men": "Total revenues of the men's team in this sport, USD (NULL if no men's team).",
+    "rev_women": "Total revenues of the women's team in this sport, USD (NULL if no women's team).",
+    "revenue_menall": "Revenues of the men's team plus co-ed men in this sport, USD.",
+    "revenue_womenall": "Revenues of the women's team plus co-ed women in this sport, USD.",
+    "total_revenue_all": "All team revenues in this sport, USD.",
+    "opexpperpart_men": "Game-day operating expenses per participant, men's team, USD (average, not a total).",
+    "opexpperpart_women": "Game-day operating expenses per participant, women's team, USD (average, not a total).",
+    "total_opexp_inclcoed": "Game-day operating expenses, all teams in this sport incl. co-ed, USD (a subset of total expenses)."
   }
 }
