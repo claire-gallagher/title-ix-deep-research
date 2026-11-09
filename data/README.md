@@ -33,6 +33,11 @@
   - [ ] `uv run build_eada.py --inspect`, then fill in `FILE_TABLES` and `STANDARD_NAMES` in
         `build_eada.py`, the placeholders in `sql/views.sql`, and `column_notes.json`
 - **Build:** `uv run build_eada.py` writes `data/eada.duckdb` and `data/eada_mappings.json`.
+- **Trimmed for the agents (2026-11-09):** the raw files load as temp tables (169 + 130 columns);
+  `sql/tables.sql` keeps what answers questions: `institutions` (42 columns) and `sports` (31),
+  with coaches collapsed to team gender x coach sex. Its header lists what's left out and why
+  (mainly the `il_*` totals, which duplicate the sport rows and exclude football and basketball).
+  Anything dropped is still in `data/raw` and the codebook.
 
 ## eada_codebook.csv (data dictionary)
 

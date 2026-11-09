@@ -35,8 +35,8 @@ MAX_ENUM_VALUES = 60
 # the SPORT-level file (one row per school, year and sport: sportscode, sports); InstLevel.xlsx has
 # one row per school per year.
 FILE_TABLES = {
-    "institutions": ["instlevel*"],
-    "sports": ["schools*"],
+    "raw_institutions": ["instlevel*"],  # trimmed into `institutions` by sql/tables.sql
+    "raw_sports": ["schools*"],  # trimmed into `sports`
 }
 
 # TODO after --inspect: the raw names (normalised: lowercase, underscores) of the columns every
@@ -48,8 +48,8 @@ STANDARD_NAMES = {
 }
 
 TABLE_DESCRIPTIONS = {
-    "institutions": "EADA institution-level data: one row per school per year (enrollment, participation, spending, revenue totals).",
-    "sports": "EADA sport-level data: one row per school, year and sport (participation, coaches, revenue, expenses by team).",
+    "institutions": "EADA, one row per school per year: enrollment, unduplicated athlete counts, athletic aid, recruiting, coach salaries, unallocated and grand-total revenue/expenses. No per-team money: that's in sports.",
+    "sports": "EADA, one row per school, year and SPONSORED sport: participants, revenue, expenses, game-day operating expenses and coaches by team gender. Join institutions on (unitid, survey_year) for division, state or enrollment.",
     "institution_aliases": "Alternate spellings of institution names -> unitid. Resolve user wording here before filtering.",
     "nil_facts": "Curated NIL and revenue-sharing figures from reports (Opendorse, College Sports Commission), with source, period, method note and URL for every row. Not EADA data.",
     "v_proportionality": "Derived: female share of undergrads vs. female share of athletes (unduplicated) and the gap in percentage points, per school and year.",
@@ -130,7 +130,7 @@ def load_tables(db: duckdb.DuckDBPyConnection) -> list[str]:
                         df = df.rename(columns={found: standard})
                 df = df.copy()  # read_excel leaves wide frames fragmented; insert() warns per file otherwise
                 df.insert(0, "survey_year", int(year) if year.isdigit() else year)
-                if table == "sports":
+                if table == "raw_sports":
                     df = drop_unsponsored(df, year)
                 frames.append(df)
         if not frames:
@@ -141,7 +141,8 @@ def load_tables(db: duckdb.DuckDBPyConnection) -> list[str]:
         # classification_name); recheck with --inspect when adding years.
         combined = pd.concat(frames, ignore_index=True, sort=False)
         db.register("frame", combined)
-        db.execute(f"CREATE TABLE {table} AS SELECT * FROM frame")
+        # TEMP: the raw tables only feed sql/tables.sql; in the file they'd leave dead space behind.
+        db.execute(f"CREATE TEMP TABLE {table} AS SELECT * FROM frame")
         db.unregister("frame")
         tables.append(table)
         print(f"{table}: {len(combined):,} rows from {len(frames)} files")
@@ -210,7 +211,10 @@ def main() -> None:
 
     DB_PATH.unlink(missing_ok=True)
     db = duckdb.connect(str(DB_PATH))
-    tables = load_tables(db)
+    load_tables(db)
+    # Keep only the columns the agents need (see the header of sql/tables.sql for what's left out).
+    db.execute((HERE / "sql" / "tables.sql").read_text())
+    tables = ["institutions", "sports"]
     if "institutions" in tables:
         build_aliases(db)
         tables.append("institution_aliases")
