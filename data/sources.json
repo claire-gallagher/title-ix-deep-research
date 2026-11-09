@@ -1,0 +1,26 @@
+{
+  "_about": "Domain -> source_type and typical access. source_type order (most to least authoritative): official_filing, official_body, policy_document, industry_report, legal_analysis, news, estimate. access is 'open', 'paywalled', or 'untested'. Test each domain from the deployed Cloud Run service (bot protection differs from your laptop) and update 'access'.",
+  "_todo": [
+    "Add the College Sports Commission's own domain once confirmed from its NIL Go report pages",
+    "Add conference sites (bigten.org, secsports.com, ...) as official_body if used",
+    "Add student newspapers for schools you feature (usually open, good on revenue-sharing splits)"
+  ],
+  "domains": {
+    "ed.gov": {"source_type": "official_body", "access": "open"},
+    "ncaa.org": {"source_type": "official_body", "access": "untested"},
+    "ecfr.gov": {"source_type": "policy_document", "access": "open"},
+    "govinfo.gov": {"source_type": "policy_document", "access": "open"},
+    "congress.gov": {"source_type": "policy_document", "access": "untested"},
+    "opendorse.com": {"source_type": "industry_report", "access": "untested"},
+    "jdsupra.com": {"source_type": "legal_analysis", "access": "untested"},
+    "apnews.com": {"source_type": "news", "access": "untested"},
+    "frontofficesports.com": {"source_type": "news", "access": "untested"},
+    "nilnewsstand.com": {"source_type": "news", "access": "untested"},
+    "on3.com": {"source_type": "news", "access": "untested"},
+    "espn.com": {"source_type": "news", "access": "untested"},
+    "usatoday.com": {"source_type": "news", "access": "untested"},
+    "theathletic.com": {"source_type": "news", "access": "paywalled"},
+    "nytimes.com": {"source_type": "news", "access": "paywalled"},
+    "sportico.com": {"source_type": "news", "access": "paywalled"}
+  }
+}

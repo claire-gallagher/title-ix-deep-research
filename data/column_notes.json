@@ -1,0 +1,48 @@
+{
+  "_about": "Hand-written notes from the EADA data dictionary, merged into data/eada_mappings.json by build_eada.py. The Data Researcher reads them with read_mappings. Fill 'columns' with the REAL column names after `uv run build_eada.py --inspect`. Every entry below is a TODO until checked against the data dictionary.",
+  "gotchas": [
+    {
+      "topic": "duplicated participants",
+      "note": "Sport-level participation counts an athlete once per team, so an athlete on three teams counts three times. For institution-wide shares (proportionality), use the unduplicated count if the file provides one.",
+      "columns": ["TODO"]
+    },
+    {
+      "topic": "co-ed teams",
+      "note": "Co-ed team participants are reported separately from men's and women's teams. Say whether a figure includes them.",
+      "columns": ["TODO"]
+    },
+    {
+      "topic": "proportionality gap",
+      "note": "Not a column. Use the view v_proportionality: female share of undergraduates minus female share of athletes, in percentage points. A positive gap means women are underrepresented among athletes. This is prong 1 of the three-part test only; it does not establish compliance or non-compliance.",
+      "columns": ["v_proportionality.gap_pp"]
+    },
+    {
+      "topic": "institution names",
+      "note": "Names are official IPEDS names (e.g. 'University of California-Berkeley'). Resolve user wording through the institution_aliases table before filtering; filter on unitid afterwards.",
+      "columns": ["TODO"]
+    },
+    {
+      "topic": "years",
+      "note": "survey_year is the reporting year as labelled by the data file (TODO: confirm whether it is the academic year's start or end). EADA trails real time, so the latest year predates revenue sharing (2025-26).",
+      "columns": ["survey_year"]
+    },
+    {
+      "topic": "revenue vs expenses",
+      "note": "Revenue and expense columns are separate, and some figures are per participant rather than totals. Check which before comparing.",
+      "columns": ["TODO"]
+    },
+    {
+      "topic": "zero vs missing",
+      "note": "A school that doesn't sponsor a sport is different from one that didn't report a value. TODO: document how each appears in the files.",
+      "columns": ["TODO"]
+    },
+    {
+      "topic": "NIL is not in EADA",
+      "note": "EADA records institutional athletics spending. Third-party NIL deals never appear here, and revenue-sharing payments are not in the years loaded. Use the nil_facts table for NIL figures and say which money flow each number belongs to.",
+      "columns": ["nil_facts.*"]
+    }
+  ],
+  "columns": {
+    "_example_TODO": "column_name: one-sentence description written from the data dictionary; overrides the model-written one"
+  }
+}

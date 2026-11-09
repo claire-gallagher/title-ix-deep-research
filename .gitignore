@@ -1,0 +1,14 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Raw downloads are large; document where they come from in data/README.md instead
+data/raw/
+data/cache/
+# Built by build_eada.py. Remove this line if you decide to commit the DB for deployment.
+data/eada.duckdb
+data/eada.duckdb.wal
+
+evals/results/

@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Title IX Research</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                font-family: system-ui, sans-serif;
+                padding: 2rem;
+                color: #111;
+                line-height: 1.5;
+            }
+            main {
+                max-width: 760px;
+                margin: 0 auto;
+                display: flex;
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+            section {
+                border: 1px solid #e0e0e0;
+                padding: 1.25rem 1.5rem;
+            }
+            h1 {
+                font-size: 1.25rem;
+                font-weight: 650;
+            }
+            .lede {
+                color: #444;
+                margin-top: 0.4rem;
+            }
+            h2 {
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: #999;
+                font-weight: 400;
+                margin-bottom: 0.75rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+            }
+            #about dl {
+                display: grid;
+                grid-template-columns: 7rem 1fr;
+                gap: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
+            #about dt {
+                color: #999;
+            }
+            #question {
+                width: 100%;
+                padding: 0.6rem 0;
+                border: none;
+                border-bottom: 1px solid #e0e0e0;
+                font-size: 1rem;
+                outline: none;
+                font-family: inherit;
+                resize: vertical;
+            }
+            #question:focus {
+                border-bottom-color: #000;
+            }
+            .examples {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                margin-top: 0.75rem;
+            }
+            .examples button {
+                background: #f4f4f5;
+                color: #333;
+                text-transform: none;
+                letter-spacing: 0;
+                font-size: 0.8rem;
+                padding: 0.4rem 0.7rem;
+                text-align: left;
+            }
+            #run {
+                margin-top: 1rem;
+            }
+            button {
+                padding: 0.75rem 1.5rem;
+                background: #000;
+                color: #fff;
+                border: none;
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                cursor: pointer;
+            }
+            button:disabled {
+                opacity: 0.3;
+            }
+            #clarify {
+                display: none;
+                border-left: 3px solid #2563eb;
+                background: #eff6ff;
+                padding: 0.75rem 1rem;
+                margin-bottom: 0.75rem;
+            }
+            #activity {
+                list-style: none;
+                font-size: 0.85rem;
+                line-height: 1.7;
+            }
+            #activity .agent {
+                font-weight: 600;
+            }
+            #activity .error {
+                color: #dc2626;
+            }
+            #status {
+                color: #999;
+                text-transform: none;
+                letter-spacing: 0;
+            }
+            #output {
+                font-size: 0.95rem;
+            }
+            #output h1, #output h2, #output h3 {
+                font-size: 1rem;
+                text-transform: none;
+                letter-spacing: 0;
+                color: #111;
+                font-weight: 650;
+                margin: 1.25rem 0 0.5rem;
+                display: block;
+            }
+            #output p, #output ul, #output table, #output blockquote {
+                margin-bottom: 0.75rem;
+            }
+            #output ul {
+                padding-left: 1.25rem;
+            }
+            #output table {
+                border-collapse: collapse;
+                font-size: 0.85rem;
+                display: block;
+                overflow-x: auto;
+            }
+            #output th, #output td {
+                border: 1px solid #e0e0e0;
+                padding: 0.3rem 0.6rem;
+                text-align: left;
+            }
+            #output blockquote {
+                border-left: 3px solid #f59e0b;
+                padding-left: 0.75rem;
+                color: #555;
+            }
+            #output code {
+                font-size: 0.8rem;
+            }
+            .empty {
+                color: #999;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <header>
+                <h1>Title IX &amp; NIL Research</h1>
+                <p class="lede">
+                    Ask about gender equity in college athletics: who gets to play, what schools spend on men's and women's
+                    teams, and how revenue sharing and NIL are changing the picture.
+                </p>
+            </header>
+
+            <section id="about">
+                <h2>About</h2>
+                <dl>
+                    <dt>What it explores</dt>
+                    <dd>
+                        Federal Equity in Athletics (EADA) filings for every co-ed college with intercollegiate athletics,
+                        a curated table of NIL and revenue-sharing figures from published reports, primary Title IX and
+                        settlement documents, and recent news.
+                    </dd>
+                    <dt>Who it's for</dt>
+                    <dd>Student journalists, athletes and recruits, Title IX coordinators, and advocates.</dd>
+                    <dt>How to use it</dt>
+                    <dd>
+                        Name the schools, conference, sport or years you care about. A lead agent splits your question, data,
+                        news and policy researchers work in parallel, and a writer reports only findings whose evidence was
+                        checked against the source. Every sentence cites a source, every number has a date, and the report
+                        says what the data can't answer. The panel on the right shows each agent's context.
+                    </dd>
+                </dl>
+            </section>
+
+            <section>
+                <h2>Question</h2>
+                <div id="clarify"></div>
+                <form id="task">
+                    <textarea id="question" rows="2" placeholder="What do you want to know?" autocomplete="off"></textarea>
+                    <div class="examples">
+                        <button type="button">What share of revenue-sharing money is expected to go to women's sports, and how does that compare to women's share of athletes at Power 4 schools?</button>
+                        <button type="button">How has the proportionality gap changed at Big Ten schools over the last five years of EADA data?</button>
+                        <button type="button">How's women's basketball doing?</button>
+                    </div>
+                    <button id="run" type="submit">Research</button>
+                </form>
+            </section>
+
+            <section>
+                <h2>Activity <span id="status"></span></h2>
+                <ol id="activity"><li class="empty">Each agent's steps appear here.</li></ol>
+            </section>
+
+            <section>
+                <h2>Report</h2>
+                <div id="output" class="empty">The cited report appears here.</div>
+            </section>
+        </main>
+
+        <script src="/context-panel.js"></script>
+        <script>
+            const $ = (id) => document.getElementById(id);
+            let source = null;
+            let runId = null;
+            let sessionId = null; // kept only while a clarifying question waits for an answer
+
+            for (const example of document.querySelectorAll(".examples button")) {
+                example.addEventListener("click", () => {
+                    $("question").value = example.textContent;
+                    $("question").focus();
+                });
+            }
+
+            function addActivity(agent, text, cls = "") {
+                const li = document.createElement("li");
+                li.className = cls;
+                if (agent) {
+                    const name = document.createElement("span");
+                    name.className = "agent";
+                    name.textContent = agent + " ";
+                    li.appendChild(name);
+                }
+                li.append(text);
+                $("activity").appendChild(li);
+            }
+
+            function showMarkdown(markdown) {
+                $("output").className = "";
+                if (window.marked && window.DOMPurify) {
+                    $("output").innerHTML = DOMPurify.sanitize(marked.parse(markdown));
+                    for (const a of $("output").querySelectorAll("a")) a.target = "_blank";
+                } else {
+                    $("output").textContent = markdown; // the CDN didn't load: plain text still works
+                }
+            }
+
+            function finish(message) {
+                $("status").textContent = message;
+                $("run").disabled = false;
+                source.close();
+            }
+
+            $("task").addEventListener("submit", (e) => {
+                e.preventDefault();
+                const question = $("question").value.trim();
+                if (!question) return;
+                if (source) source.close();
+                const params = new URLSearchParams({ question });
+                if (sessionId) params.set("session_id", sessionId);
+
+                $("activity").replaceChildren();
+                $("output").className = "empty";
+                $("output").textContent = "The cited report appears here.";
+                $("status").textContent = "running";
+                $("run").disabled = true;
+                $("clarify").style.display = "none";
+                resetContext();
+
+                source = new EventSource("/run?" + params);
+                source.onmessage = (msg) => {
+                    const event = JSON.parse(msg.data);
+                    if (event.type === "start") {
+                        runId = event.run_id;
+                        sessionId = event.session_id;
+                    } else if (event.type === "context") showContext(runId);
+                    else if (event.type === "activity") addActivity(event.agent, event.text);
+                    else if (event.type === "clarify") {
+                        // The lead needs more to go on: show its question and keep the session for the answer
+                        $("clarify").textContent = event.markdown;
+                        $("clarify").style.display = "block";
+                        $("question").value = "";
+                        $("question").placeholder = "Your answer to the question above";
+                        $("question").focus();
+                        finish("needs clarification");
+                    } else if (event.type === "report") {
+                        showMarkdown(event.markdown);
+                        sessionId = null;
+                        $("question").placeholder = "What do you want to know?";
+                        finish(`done: ${event.findings} verified findings, ${event.rejected} rejected, ${event.tool_calls} tool calls`);
+                    } else if (event.type === "error") {
+                        addActivity("", event.message, "error");
+                        finish("failed");
+                    }
+                };
+                source.onerror = () => {
+                    addActivity("", "Lost the connection to the server.", "error");
+                    finish("failed");
+                };
+            });
+        </script>
+    </body>
+</html>
