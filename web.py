@@ -27,6 +27,8 @@ from urllib.parse import urlparse
 
 HERE = Path(__file__).parent
 CACHE_DIR = Path(os.environ.get("CACHE_DIR", HERE / "data" / "cache")) / "pages"
+SEARCH_CACHE_DIR = CACHE_DIR.parent / "searches"
+SEARCH_CACHE_HOURS = 24
 SOURCES = json.loads((HERE / "data" / "sources.json").read_text())
 
 # Enough of an article to find its claims. A whole long page would crowd the researcher's context.
@@ -155,6 +157,12 @@ def search(query: str, max_results: int = 6) -> list[dict]:
     """
     import httpx
 
+    # Each Tavily search costs a credit and the free tier is small: reuse a result for a day.
+    normalized = " ".join(query.lower().split())
+    cache_path = SEARCH_CACHE_DIR / (hashlib.sha256(f"{normalized}|{max_results}".encode()).hexdigest()[:24] + ".json")
+    if cache_path.exists() and time.time() - cache_path.stat().st_mtime < SEARCH_CACHE_HOURS * 3600:
+        return json.loads(cache_path.read_text())
+
     key = os.environ.get("TAVILY_API_KEY")
     if not key:
         raise RuntimeError("Set TAVILY_API_KEY in .env to enable web search.")
@@ -179,6 +187,8 @@ def search(query: str, max_results: int = 6) -> list[dict]:
     # Known open, high-tier sources first: they can actually be verified
     rank = {"official_body": 0, "policy_document": 1, "official_filing": 1, "industry_report": 2, "news": 3, "legal_analysis": 3, "unknown": 4, "estimate": 5}
     results.sort(key=lambda r: (rank.get(r["source_type"], 4), r["typical_access"] == "paywalled"))
+    SEARCH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps(results))
     return results
 
 

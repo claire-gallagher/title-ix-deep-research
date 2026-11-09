@@ -35,6 +35,8 @@ SETTINGS = ModelSettings(extra_args={"vertex_location": "global", "timeout": 90,
 
 # The Lead gets this many researchers in all. Prompts ask for restraint; code enforces it.
 MAX_RESEARCHERS = 6
+# Web searches per run, across all News Researchers: each one spends a Tavily credit.
+MAX_SEARCHES = 8
 CLARIFY = "CLARIFY:"
 
 
@@ -65,6 +67,7 @@ class Research:
     hooks: ResearchHooks
     researchers: int = 0
     queries: int = 0
+    searches: int = 0
     findings: list[dict] = field(default_factory=list)  # verified only, ids F1..Fn, for the Writer
     rejected: list[dict] = field(default_factory=list)  # failed evidence checks, with the reason
     gaps: list[str] = field(default_factory=list)
@@ -151,6 +154,9 @@ def search_web(ctx: RunContextWrapper[Research], query: str) -> str:
     Args:
         query: A short search query, 2-8 words.
     """
+    if ctx.context.searches >= MAX_SEARCHES:
+        return json.dumps({"error": f"Search limit reached ({MAX_SEARCHES} per question). Work with the pages you have: fetch the most promising results, or report what you found."})
+    ctx.context.searches += 1
     try:
         results = web.search(query)
     except Exception as e:
