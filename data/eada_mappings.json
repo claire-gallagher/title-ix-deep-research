@@ -740,6 +740,7 @@
             "csc-2025-12-unique-athletes",
             "csc-2026-06-cleared-deals",
             "csc-2026-06-cleared-value",
+            "house-settlement-damages-total",
             "house-settlement-revshare-cap",
             "opendorse-revshare-fb-mbb-share",
             "opendorse-revshare-total",
@@ -753,6 +754,7 @@
           "type": "VARCHAR",
           "enum_values": [
             "College Sports Commission",
+            "House v. NCAA (N.D. Cal.)",
             "House v. NCAA settlement",
             "Opendorse"
           ],
@@ -767,6 +769,7 @@
             "NIL Deal Flow Report (Nov-Dec 2025)",
             "NIL Deal Flow Report (first; corrected)",
             "NIL at Four annual report (2025)",
+            "Opinion regarding order granting final approval of settlement agreement",
             "Revenue-sharing / marketplace data (reported by Front Office Sports)",
             "Revenue-sharing projection (reported by Front Office Sports)",
             "Settlement terms (reported)"
@@ -787,6 +790,7 @@
           "name": "retrieved_via",
           "type": "VARCHAR",
           "enum_values": [
+            "primary: data/policy/house-v-ncaa-final-approval-order-2025.md",
             "secondary: Basketball Insiders",
             "secondary: Basketball Insiders / JD Supra coverage",
             "secondary: Front Office Sports",
@@ -800,6 +804,7 @@
           "type": "VARCHAR",
           "enum_values": [
             "2025",
+            "2025-06-06",
             "2025-07",
             "2025-09-05",
             "2026-01-13",
@@ -816,6 +821,7 @@
             "2025-06-11 to 2025-12-31",
             "2025-26",
             "2026-05-01 to 2026-06-30",
+            "paid yearly over ten years from the Effective Date",
             "unclear"
           ],
           "description": "The period the figure describes. Always state it with the number."
@@ -832,6 +838,7 @@
             "share of deal applications on Opendorse submitted by women's sports athletes",
             "third-party NIL deals cleared via NIL Go (cumulative)",
             "third-party NIL deals cleared via NIL Go (in period)",
+            "total back-pay damages to former athletes (all damages classes); not revenue sharing",
             "total value of third-party NIL deals cleared (corrected)",
             "total value of third-party NIL deals cleared via NIL Go (cumulative)",
             "total value of third-party NIL deals cleared via NIL Go (in period)",
@@ -886,6 +893,7 @@
           "type": "VARCHAR",
           "enum_values": [
             "CSC clears third-party NIL deals worth $600 or more for Division I athletes; counts only deals submitted to NIL Go",
+            "Court's text: 'Defendants have agreed to pay $2.576 billion in total to compensate members of the damages classes. Damages payments will be paid yearly over the course of ten years.' Made up of the $1.976 billion NIL Claims Settlement Amount and the $600 million Additional Compensation Claims Settlement Amount: neither alone is the total. Often reported as $2.8 billion.",
             "Estimate ('collegiate NIL' in Opendorse's terms)",
             "Initially reported as $79.8M (the value of all deals in the system, including pending); CSC corrected it the next day and blamed a Deloitte clerical error",
             "No gender breakdown given",
@@ -905,6 +913,7 @@
           "enum_values": [
             "https://frontofficesports.com/college-hoops-accounts-for-nearly-30-of-revenue-sharing-payments/",
             "https://frontofficesports.com/nil-go-opendorse-house-settlement/",
+            "https://storage.courtlistener.com/recap/gov.uscourts.cand.360907/gov.uscourts.cand.360907.978.0.pdf",
             "https://www.basketballinsiders.com/?p=362195",
             "https://www.nilnewsstand.com/updates/college-sports-commission-nil-data-report-2026",
             "https://www.nilnewsstand.com/updates/college-sports-commission-nil-deal-report-december-2025",
@@ -937,6 +946,16 @@
         "hdcoach_salary_women",
         "ascoach_salary_women",
         "expense_womenall"
+      ]
+    },
+    {
+      "topic": "total vs. operating expenses",
+      "note": "expense_* is a team's TOTAL expenses. opexp_* is only game-day operating expenses (travel, officials, uniforms...), a part of expense_*. Call expense_* 'total expenses', never 'operating expenses'.",
+      "columns": [
+        "expense_menall",
+        "expense_womenall",
+        "opexp_menall",
+        "opexp_womenall"
       ]
     },
     {

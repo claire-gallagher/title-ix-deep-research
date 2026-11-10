@@ -12,6 +12,11 @@
       "columns": ["recruitexp_women", "hdcoach_salary_women", "ascoach_salary_women", "expense_womenall"]
     },
     {
+      "topic": "total vs. operating expenses",
+      "note": "expense_* is a team's TOTAL expenses. opexp_* is only game-day operating expenses (travel, officials, uniforms...), a part of expense_*. Call expense_* 'total expenses', never 'operating expenses'.",
+      "columns": ["expense_menall", "expense_womenall", "opexp_menall", "opexp_womenall"]
+    },
+    {
       "topic": "team money is in sports",
       "note": "Revenue and expenses by team are only in sports (one row per sponsored sport). For a school's men's vs. women's spending, sum sports.expense_menall / expense_womenall, or use v_spending_by_gender. Team figures leave out money not assigned to any team (institutions.tot_expense_all_notalloc: facilities, administration...); grnd_total_expense = all team expenses + not allocated. Say which one a number is.",
       "columns": ["expense_menall", "expense_womenall", "tot_expense_all_notalloc", "grnd_total_expense"]
