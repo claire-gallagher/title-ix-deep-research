@@ -288,6 +288,20 @@ def main() -> None:
     load_tables(db)
     # Keep only the columns the agents need (see the header of sql/tables.sql for what's left out).
     db.execute((HERE / "sql" / "tables.sql").read_text())
+    # A clean division column. Researchers filtered classification_name LIKE 'NCAA Division I%',
+    # which also matches Divisions II and III (1,055 "D-I" basketball teams instead of ~358), and
+    # 'NCAA Division I-%' misses the 99 D-I schools without football. Labels are stable 2016-2025.
+    db.execute("""
+        ALTER TABLE institutions ADD COLUMN ncaa_division VARCHAR;
+        UPDATE institutions SET ncaa_division = CASE
+            WHEN trim(classification_name) IN ('NCAA Division I-FBS', 'NCAA Division I-FCS', 'NCAA Division I without football') THEN 'I'
+            WHEN trim(classification_name) IN ('NCAA Division II with football', 'NCAA Division II without football') THEN 'II'
+            WHEN trim(classification_name) IN ('NCAA Division III with football', 'NCAA Division III without football') THEN 'III'
+        END;""")
+    unmapped = db.execute("""SELECT DISTINCT trim(classification_name) FROM institutions
+        WHERE classification_name ILIKE 'NCAA%' AND ncaa_division IS NULL""").fetchall()
+    if unmapped:
+        print(f"warning: NCAA classifications with no ncaa_division: {unmapped}")
     tables = ["institutions", "sports"]
     if load_conferences(db):
         tables.append("conferences")

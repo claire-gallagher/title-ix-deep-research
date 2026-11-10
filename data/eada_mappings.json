@@ -116,7 +116,7 @@
             "Other ",
             "USCAA"
           ],
-          "description": "Athletic association and division, e.g. 'NCAA Division I-FBS', 'NCAA Division III with football', 'NJCAA Division I'."
+          "description": "Athletic association and division, e.g. 'NCAA Division I-FBS', 'NCAA Division III with football', 'NJCAA Division I'. To filter by NCAA division use ncaa_division instead."
         },
         {
           "name": "sector_name",
@@ -306,6 +306,16 @@
           "name": "grnd_total_expense",
           "type": "BIGINT",
           "description": "All athletics expenses: every team + not allocated, USD."
+        },
+        {
+          "name": "ncaa_division",
+          "type": "VARCHAR",
+          "enum_values": [
+            "I",
+            "II",
+            "III"
+          ],
+          "description": "NCAA division: 'I', 'II' or 'III' (NULL for NAIA, NJCAA and others). Filter on this, e.g. ncaa_division = 'I', never on classification_name with LIKE."
         }
       ]
     },
@@ -911,6 +921,24 @@
     }
   ],
   "gotchas": [
+    {
+      "topic": "filtering by division",
+      "note": "Use institutions.ncaa_division = 'I' (or 'II', 'III'). classification_name LIKE 'NCAA Division I%' also matches Divisions II and III, and 'NCAA Division I-%' misses D-I schools without football. Division I has about 350-360 schools a year; a D-I count far above that means the filter is wrong.",
+      "columns": [
+        "ncaa_division",
+        "classification_name"
+      ]
+    },
+    {
+      "topic": "school-level vs. team-level money",
+      "note": "institutions columns (recruitexp_*, hdcoach_salary_*, ascoach_salary_*, studentaid_*) cover ALL of a school's men's or women's teams together, never one sport. Joined to a sports row they are still department-wide: don't call them a basketball (or any one team's) figure. Per-team money is only sports.revenue_* / expense_* / opexp_*.",
+      "columns": [
+        "recruitexp_women",
+        "hdcoach_salary_women",
+        "ascoach_salary_women",
+        "expense_womenall"
+      ]
+    },
     {
       "topic": "team money is in sports",
       "note": "Revenue and expenses by team are only in sports (one row per sponsored sport). For a school's men's vs. women's spending, sum sports.expense_menall / expense_womenall, or use v_spending_by_gender. Team figures leave out money not assigned to any team (institutions.tot_expense_all_notalloc: facilities, administration...); grnd_total_expense = all team expenses + not allocated. Say which one a number is.",

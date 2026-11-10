@@ -2,6 +2,16 @@
   "_about": "Hand-written notes from the EADA codebooks (data/eada_codebook.csv), checked against the data for 2015-16..2024-25 on 2026-11-09. Merged into data/eada_mappings.json by build_eada.py; they go into the Data Researcher's instructions. Column descriptions here override the codebook label. Keys are bare column names. The tables are trimmed by sql/tables.sql; its header says what was left out and why.",
   "gotchas": [
     {
+      "topic": "filtering by division",
+      "note": "Use institutions.ncaa_division = 'I' (or 'II', 'III'). classification_name LIKE 'NCAA Division I%' also matches Divisions II and III, and 'NCAA Division I-%' misses D-I schools without football. Division I has about 350-360 schools a year; a D-I count far above that means the filter is wrong.",
+      "columns": ["ncaa_division", "classification_name"]
+    },
+    {
+      "topic": "school-level vs. team-level money",
+      "note": "institutions columns (recruitexp_*, hdcoach_salary_*, ascoach_salary_*, studentaid_*) cover ALL of a school's men's or women's teams together, never one sport. Joined to a sports row they are still department-wide: don't call them a basketball (or any one team's) figure. Per-team money is only sports.revenue_* / expense_* / opexp_*.",
+      "columns": ["recruitexp_women", "hdcoach_salary_women", "ascoach_salary_women", "expense_womenall"]
+    },
+    {
       "topic": "team money is in sports",
       "note": "Revenue and expenses by team are only in sports (one row per sponsored sport). For a school's men's vs. women's spending, sum sports.expense_menall / expense_womenall, or use v_spending_by_gender. Team figures leave out money not assigned to any team (institutions.tot_expense_all_notalloc: facilities, administration...); grnd_total_expense = all team expenses + not allocated. Say which one a number is.",
       "columns": ["expense_menall", "expense_womenall", "tot_expense_all_notalloc", "grnd_total_expense"]
@@ -78,7 +88,8 @@
     "survey_year": "End year of the academic year the row covers: 2025 = 2024-25.",
     "city_txt": "City.",
     "state_cd": "Two-letter state code.",
-    "classification_name": "Athletic association and division, e.g. 'NCAA Division I-FBS', 'NCAA Division III with football', 'NJCAA Division I'.",
+    "classification_name": "Athletic association and division, e.g. 'NCAA Division I-FBS', 'NCAA Division III with football', 'NJCAA Division I'. To filter by NCAA division use ncaa_division instead.",
+    "ncaa_division": "NCAA division: 'I', 'II' or 'III' (NULL for NAIA, NJCAA and others). Filter on this, e.g. ncaa_division = 'I', never on classification_name with LIKE.",
     "sector_name": "Institution type: public/private, nonprofit/for-profit, 4-year/2-year.",
     "efmalecount": "Full-time male undergraduates.",
     "effemalecount": "Full-time female undergraduates.",
