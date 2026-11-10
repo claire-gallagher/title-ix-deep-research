@@ -12,6 +12,7 @@ Built from wikipedia-deep-research's pieces. What's different:
 
 import asyncio
 import contextvars
+import html
 import json
 import os
 import re
@@ -38,11 +39,12 @@ RESEARCHER_MODEL = LitellmModel(model="vertex_ai/gemini-3.5-flash-lite", api_key
 # absorb Vertex's 429 RESOURCE_EXHAUSTED, which the shared Gemini quota returns under bursts.
 SETTINGS = ModelSettings(extra_args={"vertex_location": "global", "timeout": 90, "num_retries": 5})
 
-# The Lead gets this many researchers in all, and at most MAX_PER_KIND of one kind (one, plus one
-# follow-up). Overlapping researchers of the same kind searched for the same things: one per kind,
-# with all its questions in one task, is faster and spends fewer credits. Code enforces it.
-MAX_RESEARCHERS = 4
-MAX_PER_KIND = 2
+# One researcher per kind per question, with all its questions in one task. Follow-up researchers
+# mostly re-searched what the first had found (a second News Researcher re-found the ESPN deal and
+# ran out of searches); a gap is now filled by the user's follow-up question, which reuses this
+# conversation's findings. Code enforces it.
+MAX_RESEARCHERS = 3
+MAX_PER_KIND = 1
 # Turns per researcher: each turn resends its whole conversation, so turns are what cost time.
 RESEARCHER_TURNS = 10
 # Researchers running at once. Each one makes a model call per turn; six at once was enough to hit
@@ -70,13 +72,66 @@ class ResearchHooks(PanelHooks):
         super().__init__(contexts, emit)
         self.tool_calls: list[dict] = []
 
-    async def on_tool_end(self, context, agent, tool, result):
+    @staticmethod
+    def _args(context) -> dict | str:
         raw = getattr(context, "tool_arguments", None)
         try:
-            args = json.loads(raw) if raw else {}
+            return json.loads(raw) if raw else {}
         except ValueError:
-            args = raw
+            return raw
+
+    # 'play' events drive the page's play diagram: each tool call is a pass out and back, with what
+    # was asked and how it came back, so you can see which agent fumbles without opening the log.
+    async def on_tool_start(self, context, agent, tool):
+        await super().on_tool_start(context, agent, tool)
+        self.emit({"type": "play", "phase": "start", "agent": agent.name, "tool": tool.name,
+                   "call_id": getattr(context, "tool_call_id", None), "detail": _play_detail(tool.name, self._args(context))})
+
+    async def on_tool_end(self, context, agent, tool, result):
+        args = self._args(context)
         self.tool_calls.append({"agent": agent.name, "name": tool.name, "args": args, "result": str(result)[:4000]})
+        outcome, note = _play_outcome(tool.name, str(result))
+        self.emit({"type": "play", "phase": "end", "agent": agent.name, "tool": tool.name,
+                   "call_id": getattr(context, "tool_call_id", None), "outcome": outcome, "note": note})
+
+
+_PLAY_ARG = {"run_sql": "query", "search_web": "query", "fetch_page": "url", "search_policy": "query",
+             "read_policy": "chunk_id", "research": "task"}
+_REFUSALS = ("already ran this exact query", "same rows as", "limit reached", "already working", "left")
+
+
+def _play_detail(tool: str, args) -> str:
+    """The one thing worth showing about a call: the query, the URL, the task."""
+    if not isinstance(args, dict):
+        return str(args)[:300]
+    if tool == "get_enum_values":
+        return f"{args.get('table')}.{args.get('column')}"
+    text = str(args.get(_PLAY_ARG.get(tool, ""), "") or json.dumps(args))
+    if tool == "research":
+        text = f"{args.get('kind')}: {text}"
+    return " ".join(text.split())[:300]
+
+
+def _play_outcome(tool: str, result: str) -> tuple[str, str]:
+    """('ok' | 'error' | 'refused', a short note) for one tool result."""
+    try:
+        data = json.loads(result)
+    except ValueError:
+        return ("refused", result[:120]) if "left" in result else ("ok", "")
+    if not isinstance(data, dict):
+        return "ok", f"{len(data)} results" if isinstance(data, list) else ""
+    if "error" in data:
+        kind = "refused" if any(r in data["error"] for r in _REFUSALS) else "error"
+        return kind, str(data["error"])[:160]
+    if "rows" in data:
+        return "ok", f"{data.get('query_id')}: {len(data['rows'])} rows"
+    if "access" in data:
+        return "ok", f"{data['access']} access"
+    if "verified_findings" in data:
+        return "ok", f"{len(data['verified_findings'])} verified, {len(data.get('rejected', []))} rejected"
+    if "full_text" in data:
+        return "ok", f"{len(data['full_text']) + len(data.get('more', []))} passages"
+    return "ok", ""
 
 
 @dataclass
@@ -97,6 +152,14 @@ class Research:
     # What this run actually retrieved: evidence.verify() checks findings against these
     pages: dict[str, dict] = field(default_factory=dict)  # url or 'policy:<chunk>' -> {text, access, ...}
     sql_results: dict[str, dict] = field(default_factory=dict)  # 'q3' -> {query, columns, rows}
+    history: list[dict] = field(default_factory=list)  # earlier questions in this conversation and their answers
+
+    def follow_up(self, hooks: "ResearchHooks") -> "Research":
+        """State for the next question in a conversation: the evidence carries over (findings keep
+        their ids and still verify against the same pages and query results; new ones number on);
+        the per-question budgets start again."""
+        return Research(hooks=hooks, queries=self.queries, findings=self.findings, rejected=self.rejected,
+                        pages=self.pages, sql_results=self.sql_results, history=self.history)
 
 
 class Finding(BaseModel):
@@ -145,6 +208,16 @@ def get_enum_values(table: str, column: str) -> str:
         return _error(e)
 
 
+def _same_result(done: dict[str, dict], result: dict) -> str | None:
+    """The id of an earlier query with the same columns and rows (in any order), if there is one."""
+    def key(r):
+        return sorted(json.dumps(row, default=str) for row in r.get("rows", []))
+    for qid, earlier in done.items():
+        if earlier.get("columns") == result.get("columns") and key(earlier) == key(result):
+            return qid
+    return None
+
+
 @function_tool
 def run_sql(ctx: RunContextWrapper[Research], query: str) -> str:
     """Run a read-only DuckDB SQL query. Returns {query_id, columns, rows, truncated}.
@@ -168,6 +241,13 @@ def run_sql(ctx: RunContextWrapper[Research], query: str) -> str:
         return _error(e)
     if "error" in result:
         return json.dumps(result)
+    # Re-running a query with an alias, a NOT NULL filter or a different ORDER BY returns the same
+    # rows: a Data Researcher once did this six times instead of writing its findings. Compare
+    # results, not query text.
+    same = _same_result(ctx.context.sql_results, result)
+    if same:
+        return json.dumps({"error": f"This returns the same rows as {same}, which you already have. "
+                           f"Write your findings from {same} now, citing sql:{same}."})
     ctx.context.queries += 1
     query_id = f"q{ctx.context.queries}"
     ctx.context.sql_results[query_id] = {"query": query, **result}
@@ -487,10 +567,13 @@ Your researchers (call research with a kind and a task):
 2. Decide which kinds the question needs: often one or two, rarely all three. Call research once per
    kind, all in the same turn so they work in parallel. Put every question for that kind into its
    one task as a short numbered list. Never send two researchers of the same kind at once.
-3. Read the results. Rejected findings failed evidence checks: don't rely on them. If an important
-   part is still unanswered, you may send one follow-up researcher of a kind, for just that part.
-   Some things no source can answer, like whether a school is legally compliant with Title IX or
-   what an individual athlete earns: don't keep searching for those; the writer will say so.
+3. Each kind can be sent once per question, so put everything into that one task. Rejected
+   findings failed evidence checks: don't rely on them. What's still missing goes in the report's
+   Limits; the user can ask a follow-up. Some things no source can answer, like whether a school
+   is legally compliant with Title IX or what an individual athlete earns.
+   Follow-up questions: the message lists the findings this conversation already has. If they
+   answer the new question, reply DONE without calling research. Otherwise research only what's
+   missing, and don't ask a clarifying question unless the follow-up makes no sense alone.
 4. Keep the kinds of money apart in tasks too: school athletics spending (EADA), revenue sharing
    (school to current athletes, from 2025-26), third-party NIL, and House settlement back-pay
    damages to former athletes. Ask for the one the question is about, by name.
@@ -518,11 +601,23 @@ Write a short answer in markdown, using only the verified findings you're given.
 an id (F3), a source type, an access level and the period it covers.
 
 Length: about 250 words; never more than 400. A reader should get the answer in the first lines.
+If earlier_in_this_conversation is given, this is a follow-up: answer the new question directly,
+building on those answers without repeating them, and shorter if the question is narrow.
 - Open with the direct answer in 2-3 sentences, with the key numbers.
 - Then only what the question asked about: a few bullets, or at most 3 short ### sections. Leave out
   findings that don't help answer it. Don't restate the question or describe how the research was done.
-- One table at most, only to compare 3 or more numbers; give it a column for the period, and don't
-  repeat its numbers in the text.
+- When the answer compares 3 or more numbers (a trend over years, or groups side by side), show
+  them as a chart rather than a table. Write it as a fenced block, ```chart, holding JSON:
+    {"type": "line" (over time) or "bar" (groups), "title": "<what, which period>",
+     "unit": "$" or "%" or "count", "labels": ["2021-22", "2022-23", ...],
+     "series": [{"name": "Revenue", "values": [859753293, 1055280440, ...]}],
+     "sources": ["F4", "F5", ...]}
+  Copy each value exactly from a finding (no converting to millions: the page formats them), one
+  per label (null if missing), at most 3 series, one unit per chart. List every finding the values
+  come from in sources. Values not in those findings get the chart removed. One chart at most;
+  then no table of the same numbers, and in the text give only the 1-2 numbers that matter most.
+- Otherwise one table at most, only to compare 3 or more numbers; give it a column for the period,
+  and don't repeat its numbers in the text.
 - End every sentence that states a fact with its finding id in brackets, e.g. [F3]. Use only the
   ids you're given.
 - Label every number with the period it covers ("in 2023-24", "projected for 2025-26").
@@ -549,28 +644,85 @@ Length: about 250 words; never more than 400. A reader should get the answer in 
 )
 
 
-def sources_section(findings: list[dict], state: Research) -> str:
-    """Built in code from what was retrieved, so every citation resolves to a real source."""
+_FINDING_REFS = re.compile(r"(?:\[F\d+\])+")  # one or more adjacent citations, e.g. [F3][F7]
+_CHART_SOURCES = re.compile(r'"sources":\[([^\]]*)\]')
+
+
+def number_sources(markdown: str, findings: list[dict]) -> tuple[str, list[dict]]:
+    """Readers get one number per source, in order of first citation, with no gaps: five findings
+    from one query are all [1]. Finding ids stay internal (evidence checks, the Writer, the run log).
+    Returns the renumbered markdown and the cited findings, one per source, in number order."""
+    by_id = {f["id"]: f for f in findings}
+    numbers: dict[str, int] = {}  # source_url -> its number
+    first: list[dict] = []
+
+    def number(fid: str) -> int | None:
+        f = by_id.get(fid)
+        if f is None:
+            return None
+        url = f.get("source_url", "")
+        if url not in numbers:
+            numbers[url] = len(numbers) + 1
+            first.append(f)
+        return numbers[url]
+
+    # Number in reading order: text citations and chart sources share one sequence
+    order = re.compile(r"(?:\[F\d+\])+|" + _CHART_SOURCES.pattern)
+    for m in order.finditer(markdown):
+        for fid in re.findall(r"F\d+", m.group(0)):
+            number(fid)
+
+    def cite(m: re.Match) -> str:
+        nums = dict.fromkeys(n for fid in re.findall(r"F\d+", m.group(0)) if (n := number(fid)))
+        return "".join(f"[{n}]" for n in nums) or m.group(0)  # an unknown id stays visible
+
+    def chart_sources(m: re.Match) -> str:
+        nums = dict.fromkeys(n for fid in re.findall(r"F\d+", m.group(1)) if (n := number(fid)))
+        return '"sources":[' + ",".join(f'"{n}"' for n in nums) + "]"
+
+    markdown = _FINDING_REFS.sub(cite, markdown)
+    return _CHART_SOURCES.sub(chart_sources, markdown), first
+
+
+def _escape_sql(query: str) -> str:
+    # The query goes into raw HTML inside markdown: escape HTML, and the characters markdown would
+    # read as emphasis (COUNT(*) ... COUNT(*) turns into italics otherwise).
+    return html.escape(query.strip()).replace("*", "&#42;").replace("_", "&#95;").replace("\n", "&#10;")
+
+
+def sources_section(cited: list[dict], state: Research) -> str:
+    """Built in code from what was retrieved, so every citation resolves to a real source.
+    cited: one finding per source, in citation-number order (from number_sources)."""
     lines = ["\n\n## Sources\n"]
-    for f in findings:
+    for n, f in enumerate(cited, 1):
         url = f.get("source_url", "")
         if url.startswith("sql:"):
-            query = state.sql_results.get(url[4:], {}).get("query", "")
-            label = f"EADA database query {url[4:]}: `{' '.join(query.split())[:200]}`"
+            result = state.sql_results.get(url[4:], {})
+            columns = result.get("columns", [])
+            col = columns.index("survey_year") if "survey_year" in columns else None
+            years = sorted({row[col] for row in result.get("rows", []) if col is not None and isinstance(row[col], int)})
+            if len(years) > 1 and years == list(range(years[0], years[-1] + 1)):
+                span = f", survey years {years[0]}-{years[-1]}"
+            else:  # one year, or a gap: "2022-2024" would claim 2023 too
+                span = f", survey year{'s' if len(years) > 1 else ''} {', '.join(map(str, years))}" if years else ""
+            label = (f"EADA database query{span} <details><summary>SQL</summary>"
+                     f"<pre><code>{_escape_sql(result.get('query', ''))}</code></pre></details>")
         else:
             page = state.pages.get(url, {})
             link = page.get("document_url") or url
             title = page.get("title") or link
             date_note = f"published {f['published']}" if f.get("published") else "publication date unknown"
             label = f"[{title}]({link}): {f.get('source_type')}, {date_note}, {f.get('access')} access"
-        lines.append(f"- **[{f['id']}]** {label}")
+        lines.append(f"- **[{n}]** {label}")
     return "\n".join(lines)
 
 
-async def deep_research(question: str, hooks: ResearchHooks) -> dict:
-    """Run the team on one question. Returns {type: 'clarify' | 'report', markdown, ...}.
-    Every run, finished or not, leaves a trace in data/cache/runs/ (see runlog.py)."""
-    state = Research(hooks=hooks)
+async def deep_research(question: str, hooks: ResearchHooks, prior: Research | None = None) -> dict:
+    """Run the team on one question. Returns {type: 'clarify' | 'report', markdown, state, ...}.
+    prior: the state an earlier question in the same conversation left (result['state']), for a
+    follow-up that reuses its findings. Every run, finished or not, leaves a trace in
+    data/cache/runs/ (see runlog.py)."""
+    state = prior.follow_up(hooks) if prior else Research(hooks=hooks)
     started = time.time()
     result: dict = {"type": "error", "markdown": ""}
     try:
@@ -585,11 +737,17 @@ async def deep_research(question: str, hooks: ResearchHooks) -> dict:
 
 async def _deep_research(question: str, state: Research, hooks: ResearchHooks) -> dict:
     # 1. Research: clarify or plan, fan out, check for gaps
-    lead_run = await Runner.run(lead, question, context=state, hooks=hooks, max_turns=12)
+    lead_input = question
+    if state.history:
+        earlier = "\n".join(f"- {h['question']}" for h in state.history)
+        have = "\n".join(f"[{f['id']}] ({f.get('period_covered') or 'period n/a'}) {f['claim']}" for f in state.findings)
+        lead_input = (f"Earlier questions in this conversation:\n{earlier}\n\nVerified findings already gathered:\n"
+                      f"{have or '(none)'}\n\nFollow-up question: {question}")
+    lead_run = await Runner.run(lead, lead_input, context=state, hooks=hooks, max_turns=12)
     _record_usage(state, lead.name, lead_run)
     lead_output = str(lead_run.final_output).strip()
-    if lead_output.upper().startswith(CLARIFY) and not state.findings:
-        return {"type": "clarify", "markdown": lead_output[len(CLARIFY):].strip(), "tool_calls": hooks.tool_calls}
+    if lead_output.upper().startswith(CLARIFY) and not state.researchers:
+        return {"type": "clarify", "markdown": lead_output[len(CLARIFY):].strip(), "tool_calls": hooks.tool_calls, "state": state}
 
     # 2. Write: one call, outside the loop. The Writer sees the question and the verified findings only.
     keys = ("id", "claim", "evidence_text", "source_type", "access", "published", "period_covered")
@@ -599,18 +757,29 @@ async def _deep_research(question: str, state: Research, hooks: ResearchHooks) -
         "gaps": state.gaps,
         "rejected_claims_do_not_state_as_fact": [r["claim"] for r in state.rejected],
     }
+    if state.history:
+        # A follow-up: answer the new question; the earlier answers are context, not to be repeated
+        brief["earlier_in_this_conversation"] = state.history[-3:]
     report = await Runner.run(writer, json.dumps(brief, indent=1, default=str), hooks=hooks)
     _record_usage(state, writer.name, report)
     markdown = str(report.final_output).strip()
 
-    # 3. Check: every [F#] must be a verified finding
+    # 3. Check: every chart value must come from verified findings, every [F#] must be one
+    markdown, charts_dropped = evidence.check_charts(markdown, state.findings)
     ids = {f["id"] for f in state.findings}
     check = evidence.check_citations(markdown, ids)
+    check["charts_dropped"] = charts_dropped
+    # A chart's sources count as citations: its findings belong in the Sources section
+    for chart_ids in _CHART_SOURCES.findall(markdown):
+        cited_by_chart = set(re.findall(r"F\d+", chart_ids))
+        check["uncited"] = [i for i in check["uncited"] if i not in cited_by_chart]
     if check["unknown"]:
         markdown += f"\n\n> Citation check: {', '.join(check['unknown'])} don't match any verified finding."
-    cited = [f for f in state.findings if f["id"] not in check["uncited"]]
+    markdown, cited = number_sources(markdown, state.findings)
+    state.history.append({"question": question, "answer": re.sub(r"```chart.*?```", "", markdown, flags=re.S)[:1500]})
     markdown += sources_section(cited, state)
     return {
+        "state": state,
         "type": "report",
         "markdown": markdown,
         "findings": state.findings,

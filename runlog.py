@@ -87,14 +87,42 @@ def list_runs(n: int = 15) -> None:
     print(f"\n{len(_runs())} runs logged; {live} live Tavily searches among them (web$ = credits spent).")
 
 
+_REPEAT_MARKERS = ("already ran this exact query", "same rows as", "Query limit reached", "Search limit reached")
+
+
+def scorecard(run: dict) -> dict[str, dict]:
+    """Per agent: model calls and tokens, tool calls, failed calls, refused repeats, findings kept and
+    rejected. Each agent has its own job, so each gets its own numbers: this is what tells you
+    which one to fix. Built from the trace, so it works on old runs too."""
+    cards: dict[str, dict] = {}
+    for agent, u in run["usage_by_agent"].items():
+        cards[agent] = {"calls": u["requests"], "input_tokens": u["input_tokens"], "output_tokens": u["output_tokens"],
+                        "tools": 0, "errors": 0, "repeats": 0, "ok": 0, "rejected": 0}
+    blank = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "tools": 0, "errors": 0, "repeats": 0, "ok": 0, "rejected": 0}
+    for c in run["tool_calls"]:
+        card = cards.setdefault(c["agent"], dict(blank))
+        card["tools"] += 1
+        result = str(c.get("result", ""))
+        if result.startswith('{"error"'):
+            card["repeats" if any(m in result for m in _REPEAT_MARKERS) else "errors"] += 1
+    for f in run["findings"]:
+        cards.setdefault(f.get("researcher") or "?", dict(blank))["ok"] += 1
+    for x in run["rejected"]:
+        cards.setdefault(x.get("researcher") or "?", dict(blank))["rejected"] += 1
+    return cards
+
+
 def show(path: Path) -> None:
     r = _load(path)
     s = r["summary"]
     print(f"# {r['at']}  {path.name}\nQuestion: {r['question']}\n")
     print("Summary: " + ", ".join(f"{k}={v}" for k, v in s.items()))
-    print("\nTokens by agent:")
-    for agent, u in r["usage_by_agent"].items():
-        print(f"  {agent:<22} {u['requests']:>3} calls  {u['input_tokens']:>8} in  {u['output_tokens']:>7} out")
+    print("\nScorecard by agent: what each one cost and what it produced")
+    print(f"  {'agent':<22} {'calls':>5} {'in tok':>8} {'out':>6} {'tools':>5} {'errors':>6} {'repeats':>7} {'ok':>3} {'rej':>3}")
+    for agent, card in scorecard(r).items():
+        print(f"  {agent:<22} {card['calls']:>5} {card['input_tokens']:>8} {card['output_tokens']:>6} {card['tools']:>5} "
+              f"{card['errors']:>6} {card['repeats']:>7} {card['ok']:>3} {card['rejected']:>3}")
+    print("  errors: tool calls that failed (bad SQL, unknown column...); repeats: re-runs refused as duplicates")
     print("\nTool calls:")
     for c in r["tool_calls"]:
         args = c["args"] if isinstance(c["args"], str) else json.dumps(c["args"], default=str)

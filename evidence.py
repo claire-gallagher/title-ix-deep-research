@@ -147,6 +147,62 @@ def check_citations(markdown: str, valid_ids: set[str]) -> dict:
     return {"unknown": sorted(cited - valid_ids), "uncited": sorted(valid_ids - cited)}
 
 
+_CHART_BLOCK = re.compile(r"```chart\s*\n(.*?)```", re.S)
+CHART_TYPES = {"bar", "line"}
+MAX_SERIES = 3  # the palette's first three slots stay distinguishable for colorblind readers
+
+
+def check_chart(spec: dict, findings_by_id: dict[str, dict]) -> tuple[bool, str]:
+    """A chart gets the same rule as a finding: every value it plots must appear in the evidence
+    of the findings it cites. Labels aren't checked as figures (they're years and names)."""
+    if spec.get("type") not in CHART_TYPES:
+        return False, f"type must be one of {sorted(CHART_TYPES)}"
+    labels, series, cited = spec.get("labels"), spec.get("series"), spec.get("sources")
+    if not (isinstance(labels, list) and isinstance(series, list) and isinstance(cited, list) and labels and series):
+        return False, "needs labels, series and sources lists"
+    if len(series) > MAX_SERIES:
+        return False, f"at most {MAX_SERIES} series"
+    unknown = [c for c in cited if c not in findings_by_id]
+    if unknown:
+        return False, f"cites unknown findings {unknown}"
+    pool: set[str] = set()
+    for c in cited:
+        pool |= numbers(findings_by_id[c].get("evidence_text", ""))
+    for s in series:
+        values = s.get("values") if isinstance(s, dict) else None
+        if not isinstance(values, list) or len(values) != len(labels):
+            return False, "each series needs one value per label"
+        for v in values:
+            if v is None:
+                continue  # a gap in the series
+            if isinstance(v, bool) or not isinstance(v, (int, float)):
+                return False, f"value {v!r} isn't a number"
+            if not all(_covered(n, pool) for n in numbers(repr(v))):
+                return False, f"value {v} isn't in the cited findings' evidence"
+    return True, "values match cited evidence"
+
+
+def check_charts(markdown: str, findings: list[dict]) -> tuple[str, list[str]]:
+    """Drop every ```chart block that fails check_chart. Returns (markdown, reasons for drops)."""
+    by_id = {f["id"]: f for f in findings}
+    dropped: list[str] = []
+
+    def keep_or_drop(m: re.Match) -> str:
+        try:
+            spec = json.loads(m.group(1))
+        except ValueError:
+            dropped.append("chart isn't valid JSON")
+            return ""
+        ok, reason = check_chart(spec, by_id) if isinstance(spec, dict) else (False, "chart isn't an object")
+        if not ok:
+            dropped.append(reason)
+            return ""
+        # Re-serialise compactly: the page parses it, and it's what /chat clients see
+        return "```chart\n" + json.dumps(spec, separators=(",", ":")) + "\n```"
+
+    return _CHART_BLOCK.sub(keep_or_drop, markdown), dropped
+
+
 if __name__ == "__main__":
     page_text = (
         "Led by women's basketball, between 8% and 12% of all revenue-sharing dollars "
@@ -199,4 +255,16 @@ if __name__ == "__main__":
     # Citations
     report ="Women are 47% of athletes [F1]. Revenue sharing differs [F2][F7]."
     assert check_citations(report, {"F1", "F2", "F3"}) == {"unknown": ["F7"], "uncited": ["F3"]}
+    # Charts: values must come from the cited findings' evidence (rounding allowed)
+    found = [{"id": "F1", "evidence_text": "survey_year=2023, avg_revenue=3108725.8571, avg_expenses=6119890.93"},
+             {"id": "F2", "evidence_text": "survey_year=2024, avg_revenue=4285628.0, avg_expenses=6776757.0"}]
+    good = {"type": "bar", "title": "t", "unit": "$", "labels": ["2022-23", "2023-24"],
+            "series": [{"name": "Revenue", "values": [3108726, 4285628]}], "sources": ["F1", "F2"]}
+    assert check_chart(good, {f["id"]: f for f in found})[0]
+    bad = {**good, "series": [{"name": "Revenue", "values": [3200000, 4285628]}]}
+    assert "3200000" in check_chart(bad, {f["id"]: f for f in found})[1]
+    md, why = check_charts("Text [F1].\n\n```chart\n" + json.dumps(bad) + "\n```\nMore.", found)
+    assert "```chart" not in md and why
+    md, why = check_charts("```chart\n" + json.dumps(good) + "\n```", found)
+    assert "```chart" in md and not why
     print(json.dumps({"evidence self-check": "ok"}))
