@@ -8,10 +8,10 @@ repeat the same data as one wide row per school.
 Folders are named by the year the API labels the file with, which is the END of the academic
 year: 2025 = 2024-25. build_eada.py uses the folder name as survey_year.
 
-  uv run download_eada.py                  2019-20 through the latest year
-  uv run download_eada.py --from 2016      more history
-  uv run download_eada.py --list           show what's available, download nothing
-  uv run download_eada.py --ipeds          IPEDS IC files (conference membership) for those years
+  uv run scripts/download_eada.py                  2019-20 through the latest year
+  uv run scripts/download_eada.py --from 2016      more history
+  uv run scripts/download_eada.py --list           show what's available, download nothing
+  uv run scripts/download_eada.py --ipeds          IPEDS IC files (conference membership) for those years
 """
 
 import io
@@ -23,7 +23,7 @@ import zipfile
 from pathlib import Path
 
 API = "https://ope.ed.gov/athletics/api/dataFiles"
-RAW = Path(__file__).parent / "data" / "raw" / "eada"
+RAW = Path(__file__).resolve().parent.parent / "data" / "raw" / "eada"  # scripts/ -> repo root
 # Only these leave the zip: the Excel data build_eada.py reads and the codebooks a human reads.
 # SAS/SPSS copies of the same data are left out.
 KEEP = (".xlsx", ".xls", ".csv", ".doc", ".docx", ".pdf")

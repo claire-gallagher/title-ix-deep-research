@@ -6,7 +6,7 @@
   https://ope.ed.gov/athletics/#/datafile/list
 - **Download:** one folder per year into `data/raw/eada/<year>/` (gitignored), e.g.
   `data/raw/eada/2023/<files>`. Use the folder name for the year the files are labelled with.
-- **Download script:** `uv run download_eada.py` fetches 2019-20 through the latest year from the
+- **Download script:** `uv run scripts/download_eada.py` fetches 2019-20 through the latest year from the
   site's JSON API (`https://ope.ed.gov/athletics/api/dataFiles/fileList`); `--from 2016` for more,
   `--list` to see what's there. Downloaded so far: 2016-2025 folders (academic years 2015-16 to 2024-25).
 - **Year label = END of the academic year:** folder `2025` holds "Data for academic year 2024-25"
@@ -30,9 +30,9 @@
         what each file contains: see `column_notes.json`. The biggest trap: institution-level
         `il_revenue_*` / `il_expense_*` totals exclude football and basketball.
   - [x] Confirm whether the year label is the academic year's start or end
-  - [ ] `uv run build_eada.py --inspect`, then fill in `FILE_TABLES` and `STANDARD_NAMES` in
+  - [ ] `uv run scripts/build_eada.py --inspect`, then fill in `FILE_TABLES` and `STANDARD_NAMES` in
         `build_eada.py`, the placeholders in `sql/views.sql`, and `column_notes.json`
-- **Build:** `uv run build_eada.py` writes `data/eada.duckdb` and `data/eada_mappings.json`.
+- **Build:** `uv run scripts/build_eada.py` writes `data/eada.duckdb` and `data/eada_mappings.json`.
 - **Trimmed for the agents (2026-11-09):** the raw files load as temp tables (169 + 130 columns);
   `sql/tables.sql` keeps what answers questions: `institutions` (42 columns) and `sports` (31),
   with coaches collapsed to team gender x coach sex. Its header lists what's left out and why
@@ -42,7 +42,7 @@
 ## IPEDS Institutional Characteristics (conferences)
 
 - **Source:** NCES IPEDS, `IC<Y>.zip` + `IC<Y>_Dict.zip` from https://nces.ed.gov/ipeds/datacenter/data/
-- **Download:** `uv run download_eada.py --ipeds` into `data/raw/ipeds/` (gitignored), one file per
+- **Download:** `uv run scripts/download_eada.py --ipeds` into `data/raw/ipeds/` (gitignored), one file per
   EADA year: IC<Y> is academic year Y-(Y+1) = EADA `survey_year` Y+1 (EADA 2025 needs IC2024).
 - **Used:** `CONFNO1` (football conference) and `CONFNO2` (basketball conference), labelled from
   each year's dictionary; the revised release (`_rv.csv`) when the zip has one. IC2024 is a

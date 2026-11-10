@@ -9,9 +9,9 @@
    description, merge in the hand-written notes from data/column_notes.json, and write it all to
    data/eada_mappings.json: the schema and gotchas placed in the Data Researcher's instructions.
 
-  uv run build_eada.py --inspect    print each raw file's columns (do this first)
-  uv run build_eada.py              build
-  uv run build_eada.py --no-llm     build without model-written descriptions
+  uv run scripts/build_eada.py --inspect    print each raw file's columns (do this first)
+  uv run scripts/build_eada.py              build
+  uv run scripts/build_eada.py --no-llm     build without model-written descriptions
 """
 
 import json
@@ -23,7 +23,7 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-HERE = Path(__file__).parent
+HERE = Path(__file__).resolve().parent.parent  # the repo root: this script lives in scripts/
 DATA = HERE / "data"
 RAW = DATA / "raw" / "eada"  # data/raw/eada/2023/<files>, data/raw/eada/2024/<files>, ...
 DB_PATH = DATA / "eada.duckdb"
@@ -265,7 +265,7 @@ def load_conferences(db: duckdb.DuckDBPyConnection) -> bool:
         df["ipeds_file"] = name
         frames.append(df.drop(columns=["confno1", "confno2"]))
     if not frames:
-        print(f"warning: no IPEDS files in {IPEDS_RAW}: no conferences table (uv run download_eada.py --ipeds)")
+        print(f"warning: no IPEDS files in {IPEDS_RAW}: no conferences table (uv run scripts/download_eada.py --ipeds)")
         return False
     db.register("frame", pd.concat(frames, ignore_index=True))
     # Only EADA schools, so the table stays small and every row joins.
@@ -279,6 +279,9 @@ def load_conferences(db: duckdb.DuckDBPyConnection) -> bool:
 
 
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:  # a build deletes the database first: never start one by accident
+        print(__doc__)
+        return
     if "--inspect" in sys.argv:
         inspect()
         return

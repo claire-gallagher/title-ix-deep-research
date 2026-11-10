@@ -4,6 +4,13 @@ This is the design document for Project 2 (Data Exploration Agent). It records e
 during planning so development can continue in Claude Code. `CLAUDE.md` tells Claude Code how to
 work in this repo; this file says *what* we're building and *why*.
 
+> **Since this brief (2026-11-09):** the system as built is described in the README. The main
+> changes: the Lead works in structured calls (a plan, then a review that sends at most one round of
+> follow-up tasks) instead of a tool loop; the Data Researcher sees only the part of the schema its
+> task needs; rejected findings get one repair turn; citations are numbered per source with hover
+> cards; evals test the Lead, the Data Researcher and whole runs separately, against gold answers
+> computed from the database. File paths below predate the move to `static/`, `scripts/` and `docs/`.
+
 ---
 
 ## 1. One-paragraph summary
@@ -307,7 +314,7 @@ AI Gemini (`gemini-3.5-flash`, `gemini-3.5-flash-lite`), FastAPI + SSE, DuckDB.
 
 ## 11. Build order (de-risked)
 
-1. **Data first.** Download EADA files for ~5 recent years. `uv run build_eada.py --inspect`,
+1. **Data first.** Download EADA files for ~5 recent years. `uv run scripts/build_eada.py --inspect`,
    read the data dictionary, fill in `FILE_TABLES` in `build_eada.py`, `sql/views.sql`, and
    `data/column_notes.json`. Build the DB.
 2. **Data Researcher alone.** Get the Text2SQL part answering the trap questions correctly
