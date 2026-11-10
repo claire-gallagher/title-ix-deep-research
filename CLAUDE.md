@@ -60,7 +60,8 @@ bucket mounted at `/data` (`EADA_DB=/data/eada.duckdb`), so don't commit the dat
 | `web.py` | search, fetch, access detection, publication dates, cache, source tiers |
 | `policy.py` | BM25 search over `data/policy/*.md` |
 | `evidence.py` | evidence verification and citation checks |
-| `runlog.py` | per-run traces in `data/cache/runs/`, Tavily usage |
+| `runlog.py` | per-run traces in `data/cache/runs/`, per-agent scorecard, Tavily usage |
+| `index.html`, `playbook.js` | the page: chalkboard play diagram (driven by `play` SSE events from `ResearchHooks`), Film room tab holding the template context panel, clipboard chat |
 | `build_eada.py`, `sql/views.sql` | offline build step |
 | `data/` | `nil_facts.csv`, `column_notes.json`, `sources.json`, `policy/`, `raw/` (gitignored) |
 | `evals/` | questions + citation eval |

@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import uuid
+from collections import OrderedDict
 from pathlib import Path
 
 import uvicorn
@@ -26,6 +27,11 @@ HERE = Path(__file__).parent
 sessions: dict[str, AgentContexts] = {}
 # session_id -> the question waiting on the user's answer to a clarifying question
 pending: dict[str, dict] = {}
+# session_id -> the research state its last report left, so a follow-up question reuses its findings
+# instead of starting over. In-memory: a restart (or another Cloud Run instance) forgets it, and the
+# follow-up is then researched from scratch. Oldest conversations are dropped past MAX_CONVERSATIONS.
+conversations: OrderedDict[str, object] = OrderedDict()
+MAX_CONVERSATIONS = 100
 
 app = FastAPI()
 add_context_panel(app, sessions)
@@ -42,12 +48,22 @@ def compose(session_id: str, message: str) -> str:
 def remember(session_id: str, question: str, result: dict) -> None:
     if result["type"] == "clarify":
         pending[session_id] = {"question": question, "asked": result["markdown"]}
+    elif result["type"] == "report" and result.get("state") is not None:
+        conversations[session_id] = result["state"]
+        conversations.move_to_end(session_id)
+        while len(conversations) > MAX_CONVERSATIONS:
+            conversations.popitem(last=False)
 
 
 @app.get("/")
 def index():
     # no-cache: browsers otherwise keep serving an old page after a redeploy
     return FileResponse(HERE / "index.html", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/playbook.js")
+def playbook():
+    return FileResponse(HERE / "playbook.js", media_type="text/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/health")
@@ -67,9 +83,10 @@ async def run(question: str, session_id: str | None = None):
 
     async def work():
         try:
-            result = await deep_research(full_question, hooks)
+            result = await deep_research(full_question, hooks, conversations.get(session_id))
             remember(session_id, full_question, result)
             queue.put_nowait({
+                "follow_up": len(result["state"].history) > 1 if result.get("state") else False,
                 "type": result["type"],
                 "markdown": result["markdown"],
                 "tool_calls": len(result["tool_calls"]),
@@ -116,7 +133,7 @@ async def chat(request: ChatRequest):
     hooks = ResearchHooks(AgentContexts(), lambda event: None)
     question = compose(session_id, request.message)
     try:
-        result = await deep_research(question, hooks)
+        result = await deep_research(question, hooks, conversations.get(session_id))
         remember(session_id, question, result)
         response, tool_calls = result["markdown"], result["tool_calls"]
     except Exception as e:
@@ -129,6 +146,7 @@ async def chat(request: ChatRequest):
 async def clear(session_id: str | None = None):
     if session_id:
         pending.pop(session_id, None)
+        conversations.pop(session_id, None)
     return {"status": "ok"}
 
 
