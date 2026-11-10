@@ -44,10 +44,12 @@ def save(question: str, state, result: dict, started: float) -> Path | None:
             "run_id": uuid.uuid4().hex[:8],
             "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "question": question,
+            "plans": getattr(state, "plans", []),
             "summary": summary,
             "usage_by_agent": state.usage,
             "findings": [{k: f.get(k) for k in ("id", "researcher", "claim", "source_url", "source_type", "access", "evidence_text", "check")} for f in state.findings],
             "rejected": state.rejected,
+            "repairs": getattr(state, "repairs", []),
             "gaps": state.gaps,
             "citation_check": result.get("citation_check"),
             "tool_calls": tool_calls,
@@ -117,6 +119,13 @@ def show(path: Path) -> None:
     s = r["summary"]
     print(f"# {r['at']}  {path.name}\nQuestion: {r['question']}\n")
     print("Summary: " + ", ".join(f"{k}={v}" for k, v in s.items()))
+    # Round 1 is the Lead's plan; later rounds are its reviews (no tasks = it decided to stop)
+    for p in r.get("plans") or ([{"round": 1, **r["plan"]}] if r.get("plan") else []):
+        tasks = {k: v for k, v in p.items() if v and k not in ("round",)}
+        label = "Lead's plan" if p["round"] == 1 else f"Lead's review, round {p['round']}"
+        print(f"\n{label}:" + ("" if tasks else " no follow-up needed"))
+        for k, v in tasks.items():
+            print(f"  {k}: {v}")
     print("\nScorecard by agent: what each one cost and what it produced")
     print(f"  {'agent':<22} {'calls':>5} {'in tok':>8} {'out':>6} {'tools':>5} {'errors':>6} {'repeats':>7} {'ok':>3} {'rej':>3}")
     for agent, card in scorecard(r).items():
@@ -135,6 +144,10 @@ def show(path: Path) -> None:
         print(f"  {x.get('researcher', '')}: {x['reason']}\n      claim: {(x.get('claim') or '')[:120]}\n      source: {x.get('source_url')}")
         if x.get("evidence_text"):
             print(f"      evidence: {x['evidence_text'][:160]!r}")
+    for rep in r.get("repairs", []):
+        print(f"\nRepair turn ({rep['researcher']}): {rep['repaired']} of {len(rep['first_try'])} first-try rejections fixed")
+        for x in rep["first_try"]:
+            print(f"  was: {x['reason']} | {(x.get('claim') or '')[:110]}")
     if r.get("gaps"):
         print("\nGaps reported:\n" + "\n".join(f"  - {g}" for g in r["gaps"]))
     if r.get("citation_check"):

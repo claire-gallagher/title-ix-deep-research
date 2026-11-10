@@ -64,6 +64,11 @@ def _covered(n: str, pool: set[str]) -> bool:
     for p in pool:
         if "." in p and len(p.split(".")[1]) > places and abs(round(float(p), places) - target) < 1e-9:
             return True
+        # The other way: n has more digits than the result showed (results are rounded to 4 places,
+        # and a researcher wrote 25.92389973836965 for 25.9239). Fine if it rounds to that value.
+        p_places = len(p.split(".")[1]) if "." in p else 0
+        if places > p_places and p_places >= 2 and abs(round(target, p_places) - float(p)) < 1e-9:
+            return True
     return False
 
 
@@ -106,6 +111,21 @@ def _numbers_in_rows(rows: list) -> set[str]:
     return found
 
 
+def resolve_source(finding: dict, pages: dict[str, dict]) -> None:
+    """A researcher sometimes cites a policy document by its web address (the court PDF) instead of
+    the 'policy:<chunk>' id search_policy gave it. Point the finding at the retrieved chunk of that
+    document whose text holds the evidence, if there is one; verify() still checks everything."""
+    url = finding.get("source_url", "")
+    if url in pages or url.startswith(("sql:", "policy:")):
+        return
+    evidence = finding.get("evidence_text", "")
+    parts = [p for p in re.split(r"\s*(?:\.\.\.|…)\s*", evidence) if len(p.strip()) >= 15] or [evidence]
+    for key, page in pages.items():
+        if page.get("document_url") == url and all(span_in(p, page.get("text", "")) for p in parts):
+            finding["source_url"] = key
+            return
+
+
 def verify(finding: dict, pages: dict[str, dict], sql_results: dict[str, dict]) -> tuple[bool, str]:
     """Check one finding against what this run retrieved. Returns (ok, reason)."""
     claim = finding.get("claim", "")
@@ -116,6 +136,12 @@ def verify(finding: dict, pages: dict[str, dict], sql_results: dict[str, dict]) 
 
     in_evidence = numbers(evidence)
     missing = {n for n in numbers(claim) if not _covered(n, in_evidence)}
+    if missing and url.startswith("sql:") and url.removeprefix("sql:") in sql_results:
+        # A year the query filtered on ("WHERE survey_year = 2025") is a fact about the result even
+        # when it isn't a column: "342 D-I schools in 2024-25" from that query is right. Only years:
+        # every other number must still be in the rows.
+        query_years = {n for n in numbers(sql_results[url.removeprefix("sql:")].get("query", "")) if n.isdigit() and 2000 <= int(n) <= 2099}
+        missing = {n for n in missing if n not in query_years}
     if missing:
         return False, f"numbers in the claim that aren't in the evidence: {sorted(missing)}"
 
@@ -133,17 +159,20 @@ def verify(finding: dict, pages: dict[str, dict], sql_results: dict[str, dict]) 
         return False, f"{url} was not retrieved in this research"
     if page.get("access") == "blocked":
         return False, f"{url} was blocked; nothing was read"
-    if not span_in(evidence, page.get("text", "")):
+    # A quote with an omission ("A ... B") is fine if every part is in the text: researchers join
+    # two sentences of a court order that way, and the joined string is in no source.
+    parts = [p for p in re.split(r"\s*(?:\.\.\.|…)\s*", evidence) if len(p.strip()) >= 15] or [evidence]
+    if not all(span_in(p, page.get("text", "")) for p in parts):
         return False, "evidence_text not found in the retrieved text"
     return True, f"found in retrieved text ({page.get('access', 'full')} access)"
 
 
-_CITATION = re.compile(r"\[(F\d+)\]")
+_CITATION = re.compile(r"\[(F\d+(?:\s*,\s*F\d+)*)\]")  # [F3], and the Writer's occasional [F3, F7]
 
 
 def check_citations(markdown: str, valid_ids: set[str]) -> dict:
     """After the Writer: which [F#] ids don't exist, and which findings were never cited."""
-    cited = set(_CITATION.findall(markdown))
+    cited = {fid for group in _CITATION.findall(markdown) for fid in re.findall(r"F\d+", group)}
     return {"unknown": sorted(cited - valid_ids), "uncited": sorted(valid_ids - cited)}
 
 
@@ -233,6 +262,25 @@ if __name__ == "__main__":
     # A page that was never fetched, and a blocked one
     assert not check(claim="x", evidence_text="x", source_url="https://never.example")[0]
     assert not check(claim="x", evidence_text="x", source_url="https://example.com/b")[0]
+    # Extra digits that round to the shown value are fine; a different value is not
+    sql["q4"] = {"query": "SELECT 1", "columns": ["pct"], "rows": [[25.9239]]}
+    assert check(claim="25.92%", evidence_text="pct=25.92389973836965", source_url="sql:q4")[0]
+    assert not check(claim="25.95%", evidence_text="pct=25.9531", source_url="sql:q4")[0]
+    # A year the query filtered on counts; any other number must be in the rows
+    sql["q3"] = {"query": "SELECT count(*) FROM sports WHERE survey_year = 2025 AND sports = 'Soccer'", "columns": ["n"], "rows": [[342]]}
+    assert check(claim="342 schools in 2024-25", evidence_text="school_count=342", source_url="sql:q3")[0]
+    assert not check(claim="342 schools in 2022-23", evidence_text="school_count=342", source_url="sql:q3")[0]
+    assert not check(claim="350 schools in 2024-25", evidence_text="school_count=342", source_url="sql:q3")[0]
+    # A policy chunk cited by its document's web address resolves to the chunk that holds the evidence
+    pages["policy:order#12"] = {"text": "Defendants agreed to pay $2.576 billion in total.", "access": "full", "document_url": "https://court.example/order.pdf"}
+    f = {"claim": "$2.576 billion in total", "evidence_text": "Defendants agreed to pay $2.576 billion in total.", "source_url": "https://court.example/order.pdf"}
+    resolve_source(f, pages)
+    assert f["source_url"] == "policy:order#12" and verify(f, pages, sql)[0]
+    # Ellipsis quotes: each part must be on the page; an invented part still fails
+    long_page = {"text": "Defendants agreed to pay $2.576 billion in total. Other text here. The fund of $1.976 billion is labeled NIL.", "access": "full"}
+    pages["https://example.com/order"] = long_page
+    assert check(claim="$2.576 billion in total", evidence_text="Defendants agreed to pay $2.576 billion in total. ... The fund of $1.976 billion is labeled NIL.", source_url="https://example.com/order")[0]
+    assert not check(claim="$2.576 billion", evidence_text="Defendants agreed to pay $2.576 billion in total. ... The fund was invented by the researcher here.", source_url="https://example.com/order")[0]
     # Fuzzy: curly quotes and a dropped word still match
     ok, _ = check(claim="Basketball leads", evidence_text="Led by women’s basketball, between 8% and 12% of revenue-sharing dollars",
                   source_url="https://example.com/a")
@@ -255,6 +303,7 @@ if __name__ == "__main__":
     # Citations
     report ="Women are 47% of athletes [F1]. Revenue sharing differs [F2][F7]."
     assert check_citations(report, {"F1", "F2", "F3"}) == {"unknown": ["F7"], "uncited": ["F3"]}
+    assert check_citations("A [F1, F3].", {"F1", "F2", "F3"}) == {"unknown": [], "uncited": ["F2"]}
     # Charts: values must come from the cited findings' evidence (rounding allowed)
     found = [{"id": "F1", "evidence_text": "survey_year=2023, avg_revenue=3108725.8571, avg_expenses=6119890.93"},
              {"id": "F2", "evidence_text": "survey_year=2024, avg_revenue=4285628.0, avg_expenses=6776757.0"}]

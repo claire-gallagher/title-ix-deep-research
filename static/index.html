@@ -679,6 +679,116 @@
                 padding: 0.5rem 0.75rem;
                 margin: 0.3rem 0 0.5rem;
             }
+            /* Citation badges and their cards */
+            .cite {
+                display: inline-block;
+                min-width: 1.35em;
+                padding: 0 0.3em;
+                margin: 0 0.08em;
+                font: 600 0.72em/1.5 system-ui, sans-serif;
+                vertical-align: 0.35em;
+                color: var(--navy);
+                background: #e6f5fc;
+                border: 1px solid #9fd6f0;
+                border-radius: 999px;
+                cursor: pointer;
+            }
+            .cite:hover,
+            .cite:focus-visible {
+                background: var(--ncaa);
+                border-color: var(--ncaa);
+                color: #fff;
+                outline: none;
+            }
+            .cite-card {
+                position: fixed;
+                z-index: 50;
+                max-height: min(70vh, 460px);
+                overflow-y: auto;
+                background: #fff;
+                color: var(--ink);
+                border: 1px solid #cfd6de;
+                border-top: 3px solid var(--ncaa);
+                border-radius: 8px;
+                box-shadow: 0 10px 30px rgba(10, 34, 64, 0.25);
+                padding: 0.7rem 0.85rem;
+                font-size: 0.85rem;
+                line-height: 1.45;
+            }
+            .cite-card[hidden] {
+                display: none;
+            }
+            .cc-kind {
+                font-family: var(--head);
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                font-size: 0.7rem;
+                color: var(--ink-3);
+            }
+            .cc-title {
+                display: block;
+                font-weight: 650;
+                color: var(--navy);
+                margin: 0.1rem 0;
+            }
+            .cc-meta {
+                font-size: 0.78rem;
+                color: var(--ink-2);
+                margin-bottom: 0.45rem;
+            }
+            .cc-claims {
+                list-style: none;
+                display: grid;
+                gap: 0.45rem;
+            }
+            .cc-evidence {
+                display: block;
+                margin-top: 0.15rem;
+                padding: 0.25rem 0.5rem;
+                background: #f3f6f9;
+                border-left: 3px solid #9fd6f0;
+                font: 0.76rem/1.4 ui-monospace, monospace;
+                color: var(--ink-2);
+                overflow-wrap: anywhere;
+                quotes: "“" "”";
+            }
+            .cc-more {
+                color: var(--ink-3);
+                font-size: 0.78rem;
+            }
+            .cite-card details pre {
+                white-space: pre-wrap;
+                overflow-wrap: anywhere;
+                font-size: 0.74rem;
+                background: #f3f6f9;
+                padding: 0.4rem 0.55rem;
+                margin-top: 0.3rem;
+            }
+            .cite-card summary {
+                cursor: pointer;
+                color: var(--ink-2);
+                margin-top: 0.45rem;
+                font-size: 0.8rem;
+            }
+            .cc-jump {
+                margin-top: 0.55rem;
+                background: none;
+                border: none;
+                padding: 0;
+                color: #0067a5;
+                font: inherit;
+                font-size: 0.8rem;
+                text-decoration: underline;
+                cursor: pointer;
+            }
+            .src-entry.flash {
+                animation: flash 1.6s ease-out;
+            }
+            @keyframes flash {
+                from {
+                    background: #cdeefb;
+                }
+            }
             .report .tally {
                 font-size: 0.78rem;
                 color: var(--ink-3);
@@ -750,8 +860,8 @@
                     <button role="tab" aria-selected="false" aria-controls="film" id="tab-film">Film room · raw context</button>
                     <div class="legend" aria-label="Legend">
                         <span><svg viewBox="-12 -12 24 24"><use href="#ball-basketball" x="-12" y="-12" width="24" height="24" /></svg>Data</span>
-                        <span><svg viewBox="-12 -12 24 24"><use href="#ball-soccer" x="-12" y="-12" width="24" height="24" /></svg>News</span>
                         <span><svg viewBox="-12 -12 24 24"><use href="#ball-volleyball" x="-12" y="-12" width="24" height="24" /></svg>Policy</span>
+                        <span><svg viewBox="-12 -12 24 24"><use href="#ball-soccer" x="-12" y="-12" width="24" height="24" /></svg>News</span>
                         <span><svg viewBox="-12 -12 24 24"><use href="#ball-softball" x="-12" y="-12" width="24" height="24" /></svg>Writer</span>
                         <span><svg viewBox="-12 -12 24 24"><path d="M0-9L8 7H-8Z" fill="#eb6834" /></svg>tool</span>
                         <span><svg viewBox="-12 -12 24 24"><circle r="9" fill="#f5f3ec" /><path d="M-5-8v16M0-9v18M5-8v16" stroke="#111" stroke-width="2" /></svg>referee = evidence check</span>
@@ -771,9 +881,11 @@
                 <div class="paper">
                     <div class="thread" id="thread" aria-live="polite">
                         <div class="msg welcome">
-                            <b>Ask the team.</b> Name the schools, conference, sport or years you care about. The coach plans, data, news
-                            and policy researchers run the plays, a referee checks every finding against its source, and the writer
-                            reports back here with citations.
+                            <b>Ask the team.</b> Name the schools, conference, sport or years you care about. The coach sends data
+                            (federal EADA filings), policy (legal documents) and news researchers out at once, a referee checks every
+                            finding against its source, the coach sends them back once if something's missing, and the writer reports
+                            back here. Hover a citation like
+                            [1] to see exactly what it rests on.
                         </div>
                     </div>
                     <div class="composer">
@@ -893,7 +1005,7 @@
             }
 
             // The live status: one line with the latest step, the full play-by-play folded under it
-            const BALL = { lead: "whistle", data: "basketball", news: "soccer", policy: "volleyball", writer: "softball" };
+            const BALL = { lead: "whistle", data: "basketball", policy: "volleyball", news: "soccer", writer: "softball" };
             function newStatus(firstStep) {
                 const div = post("status");
                 div.innerHTML = `<div class="now"><svg viewBox="-12 -12 24 24"><use href="#ball-whistle" x="-12" y="-12" width="24" height="24"/></svg><span class="who">Lead</span><span class="what"></span><span class="clock">0:00</span></div><details><summary>Play-by-play (0 steps)</summary><ol></ol></details>`;
@@ -939,6 +1051,7 @@
                 fetch_page: "reads a page",
                 search_policy: "searches policy documents",
                 read_policy: "reads a policy passage",
+                find_columns: "looks for columns",
             };
             function describe(e) {
                 if (e.type === "activity") return [e.agent, e.text];
@@ -1031,7 +1144,8 @@
                     }),
                 );
             }
-            function showMarkdown(markdown, tally) {
+            let reports = 0;
+            function showMarkdown(markdown, sources = []) {
                 const div = document.createElement("div");
                 div.className = "report";
                 if (window.marked && window.DOMPurify) {
@@ -1040,15 +1154,134 @@
                 } else {
                     div.textContent = markdown; // the CDN didn't load: plain text still works
                 }
-                if (tally) {
-                    const p = document.createElement("p");
-                    p.className = "tally";
-                    p.textContent = tally;
-                    div.append(p);
-                }
                 const msg = post("report-msg", div);
                 for (const code of div.querySelectorAll("code.language-chart")) renderChart(code);
+                linkCitations(div, sources, ++reports);
                 return msg;
+            }
+
+            // --- Citations: [1] becomes a badge; hover, focus or tap shows what it rests on ---
+
+            function linkCitations(div, sources, reportNo) {
+                const cards = new Map(sources.map((c) => [String(c.n), c]));
+                if (!cards.size) return;
+                // The Sources list: give each entry an id to jump to
+                const entries = new Map();
+                for (const li of div.querySelectorAll("li")) {
+                    const m = li.textContent.trim().match(/^\[(\d+)\]/);
+                    if (m && cards.has(m[1]) && !entries.has(m[1])) {
+                        li.id = `r${reportNo}-src-${m[1]}`;
+                        li.classList.add("src-entry");
+                        entries.set(m[1], li);
+                    }
+                }
+                // Every [n] in the text (and chart captions) outside the Sources list and code
+                const walker = document.createTreeWalker(div, NodeFilter.SHOW_TEXT, {
+                    acceptNode: (n) => (n.parentElement.closest(".src-entry, pre, code, .cite") || !/\[\d+\]/.test(n.nodeValue) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+                });
+                const nodes = [];
+                while (walker.nextNode()) nodes.push(walker.currentNode);
+                for (const node of nodes) {
+                    const frag = document.createDocumentFragment();
+                    let last = 0;
+                    for (const m of node.nodeValue.matchAll(/\[(\d+)\]/g)) {
+                        frag.append(node.nodeValue.slice(last, m.index));
+                        last = m.index + m[0].length;
+                        if (!cards.has(m[1])) {
+                            frag.append(m[0]);
+                            continue;
+                        }
+                        const b = document.createElement("button");
+                        b.type = "button";
+                        b.className = "cite";
+                        b.textContent = m[1];
+                        b.setAttribute("aria-label", `Source ${m[1]}: ${cards.get(m[1]).title}`);
+                        b.addEventListener("mouseenter", () => openCard(b, cards.get(m[1]), entries.get(m[1])));
+                        b.addEventListener("focus", () => openCard(b, cards.get(m[1]), entries.get(m[1])));
+                        b.addEventListener("mouseleave", () => closeCardSoon());
+                        b.addEventListener("click", (e) => {
+                            e.stopPropagation();
+                            openCard(b, cards.get(m[1]), entries.get(m[1]), true);
+                        });
+                        frag.append(b);
+                    }
+                    frag.append(node.nodeValue.slice(last));
+                    node.replaceWith(frag);
+                }
+            }
+
+            const KIND_LABEL = { sql: "EADA data", curated: "Curated figure", policy: "Policy document", web: "Web page" };
+            const card = document.createElement("div");
+            card.className = "cite-card";
+            card.hidden = true;
+            card.setAttribute("role", "dialog");
+            document.body.appendChild(card);
+            let closeTimer = null;
+            card.addEventListener("mouseenter", () => clearTimeout(closeTimer));
+            card.addEventListener("mouseleave", () => closeCardSoon());
+            document.addEventListener("click", (e) => {
+                if (!card.hidden && !card.contains(e.target)) card.hidden = true;
+            });
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") card.hidden = true;
+            });
+            function closeCardSoon() {
+                clearTimeout(closeTimer);
+                closeTimer = setTimeout(() => (card.hidden = true), 250);
+            }
+            function el(tag, cls, text) {
+                const e = document.createElement(tag);
+                if (cls) e.className = cls;
+                if (text !== undefined) e.textContent = text;
+                return e;
+            }
+            function openCard(button, c, entry) {
+                clearTimeout(closeTimer);
+                card.replaceChildren();
+                card.append(el("div", "cc-kind", `[${c.n}] ${KIND_LABEL[c.kind] || "Source"}`));
+                if (c.url) {
+                    const a = el("a", "cc-title", c.title);
+                    a.href = c.url;
+                    a.target = "_blank";
+                    a.rel = "noopener";
+                    card.append(a);
+                } else card.append(el("div", "cc-title", c.title));
+                const meta = [c.source_type && c.source_type.replace("_", " "), c.access && `${c.access} access`, c.published ? `published ${c.published}` : c.kind === "web" ? "publication date unknown" : null].filter(Boolean);
+                card.append(el("div", "cc-meta", meta.join(" · ")));
+                const list = el("ul", "cc-claims");
+                for (const cl of c.claims.slice(0, 4)) {
+                    const li = el("li");
+                    li.append(el("div", "", cl.claim));
+                    if (cl.evidence) li.append(el("q", "cc-evidence", cl.evidence));
+                    list.append(li);
+                }
+                if (c.claims.length > 4) list.append(el("li", "cc-more", `+${c.claims.length - 4} more from this source`));
+                card.append(list);
+                if (c.sql) {
+                    const d = el("details");
+                    d.append(el("summary", "", "SQL"), el("pre", "", c.sql));
+                    card.append(d);
+                }
+                if (entry) {
+                    const jump = el("button", "cc-jump", "Go to source in the list");
+                    jump.type = "button";
+                    jump.addEventListener("click", () => {
+                        card.hidden = true;
+                        entry.scrollIntoView({ block: "center", behavior: "smooth" });
+                        entry.classList.remove("flash");
+                        void entry.offsetWidth;
+                        entry.classList.add("flash");
+                    });
+                    card.append(jump);
+                }
+                // Place it above the badge, or below if there's no room; keep it on screen
+                card.hidden = false;
+                const r = button.getBoundingClientRect();
+                const w = Math.min(380, window.innerWidth - 24);
+                card.style.width = w + "px";
+                card.style.left = Math.max(12, Math.min(window.innerWidth - w - 12, r.left + r.width / 2 - w / 2)) + "px";
+                const h = card.offsetHeight;
+                card.style.top = (r.top - h - 8 > 8 ? r.top - h - 8 : Math.min(window.innerHeight - h - 8, r.bottom + 8)) + "px";
             }
 
             // --- A run ---
@@ -1098,7 +1331,7 @@
                     } else if (event.type === "report") {
                         // Keep the session: the next question is a follow-up that reuses these findings
                         finish(`${event.findings} verified findings so far, ${event.rejected} rejected, ${event.tool_calls} tool calls`);
-                        showMarkdown(event.markdown);
+                        showMarkdown(event.markdown, event.sources || []);
                         expandClip(0.55);
                         $("new-topic").hidden = false;
                         $("question").placeholder = "Ask a follow-up about this report, or start a new topic";

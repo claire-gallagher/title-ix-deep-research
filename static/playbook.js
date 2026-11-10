@@ -14,15 +14,20 @@ const Playbook = (() => {
     const NS = "http://www.w3.org/2000/svg";
     const W = 1000;
     const H = 668;
-    const REF = { x: 500, y: 214 }; // the referee: every returning researcher passes here
+    const REF = { x: 420, y: 214 }; // the referee: every returning researcher passes here
     const ROSTER = {
         lead: { x: 500, y: 92, ball: "whistle", name: "Lead", role: "coach" },
-        data: { x: 190, y: 318, ball: "basketball", name: "Data", role: "EADA SQL + NIL table", tools: ["get_enum_values", "run_sql"] },
-        news: { x: 500, y: 318, ball: "soccer", name: "News", role: "web search", tools: ["search_web", "fetch_page"] },
-        policy: { x: 810, y: 318, ball: "volleyball", name: "Policy", role: "legal documents", tools: ["search_policy", "read_policy"] },
+        data: { x: 180, y: 318, ball: "basketball", name: "Data", role: "EADA SQL + curated figures", tools: ["get_enum_values", "find_columns", "run_sql"] },
+        policy: { x: 500, y: 318, ball: "volleyball", name: "Policy", role: "legal documents", tools: ["search_policy", "read_policy"] },
+        news: { x: 820, y: 318, ball: "soccer", name: "News", role: "web search", tools: ["search_web", "fetch_page"] },
         writer: { x: 500, y: 568, ball: "softball", name: "Writer", role: "cited report" },
     };
-    const SLOT_GAP = 170; // if the limits ever allow two researchers of one kind, they stand side by side
+    // Lead -> Writer runs down the gap between Policy and News, right of the referee
+    const WRITER_ROUTE = (lead) => `M${lead.x + 30} ${lead.y + 30} C 665 260, 665 480, ${ROSTER.writer.x + 30} ${ROSTER.writer.y - 20}`;
+    const SLOT_GAP = 150; // a follow-up round's researcher ("Data 2") stands beside the first
+    // Cone labels: short, so three cones fit under one player
+    const TOOL_LABEL = { get_enum_values: "valid values", find_columns: "find columns", run_sql: "run SQL",
+        search_policy: "search", read_policy: "read passage", search_web: "web search", fetch_page: "fetch page" };
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
     let svg, layers, players, cones, pending, research, stats;
@@ -38,7 +43,7 @@ const Playbook = (() => {
         if (!agent) return null;
         if (agent === "Lead") return "lead";
         if (agent === "Writer") return "writer";
-        const m = agent.match(/^(Data|News|Policy) Researcher/);
+        const m = agent.match(/^(Data|Policy|News) Researcher/);
         return m ? m[1].toLowerCase() : null;
     }
 
@@ -103,13 +108,14 @@ const Playbook = (() => {
     // The formation before kickoff: who could play, the routes between them, and the tools
     function drawFormation() {
         const lead = ROSTER.lead;
-        for (const kind of ["data", "news", "policy"]) {
+        for (const kind of ["data", "policy", "news"]) {
             const k = ROSTER[kind];
-            route(arc(lead, k, kind === "news" ? 0.22 : 0.12), "pb-route");
-            for (const [i, tool] of k.tools.entries()) drawCone(kind, tool, k.x + (i ? 78 : -78), k.y + 150);
+            route(arc(lead, k, 0.12, kind === "data" ? 1 : -1), "pb-route");
+            const n = k.tools.length;
+            for (const [i, tool] of k.tools.entries()) drawCone(kind, tool, k.x + (i - (n - 1) / 2) * 100, k.y + 150);
             ghost(kind);
         }
-        route(`M${lead.x} ${lead.y + 40} C 700 200, 700 470, ${ROSTER.writer.x + 34} ${ROSTER.writer.y - 16}`, "pb-route");
+        route(WRITER_ROUTE(lead), "pb-route");
         route(`M${ROSTER.writer.x} ${ROSTER.writer.y + 40} L ${ROSTER.writer.x} ${H - 4}`, "pb-route");
         const out = el("text", { x: ROSTER.writer.x + 16, y: H - 6, class: "pb-small pb-left" }, layers.routes);
         out.textContent = "to the clipboard ↓";
@@ -138,7 +144,8 @@ const Playbook = (() => {
         el("path", { d: "M0-15L11 9H-11Z", filter: "url(#chalk)" }, g);
         el("path", { d: "M-15 9H15", class: "pb-cone-base", filter: "url(#chalk)" }, g);
         const label = el("text", { y: 34, class: "pb-small" }, g);
-        label.textContent = tool;
+        label.textContent = TOOL_LABEL[tool] || tool;
+        el("title", {}, g).textContent = tool;
         const mark = el("text", { x: 18, y: -6, class: "pb-mark" }, g);
         cones[tool] = { g, x, y, mark, kind };
     }
@@ -322,10 +329,10 @@ const Playbook = (() => {
             setActive(p.name);
             if (p.kind === "writer") {
                 const ball = makeBall("writer", players.Lead);
-                const d = `M${players.Lead.x} ${players.Lead.y + 40} C 700 200, 700 470, ${p.x + 34} ${p.y - 16}`;
+                const d = WRITER_ROUTE(players.Lead);
                 trail("lead-writer", d);
                 fly(ball, d, 1000).then(() => ball.remove());
-                note(`${stats.verified} verified findings`, { x: 690, y: 330 });
+                note(`${stats.verified} verified findings`, { x: 665, y: 410 });
             }
         } else if (e.text.startsWith("finished")) {
             setActive(p.name, false);

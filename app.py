@@ -58,12 +58,12 @@ def remember(session_id: str, question: str, result: dict) -> None:
 @app.get("/")
 def index():
     # no-cache: browsers otherwise keep serving an old page after a redeploy
-    return FileResponse(HERE / "index.html", headers={"Cache-Control": "no-cache"})
+    return FileResponse(HERE / "static" / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/playbook.js")
 def playbook():
-    return FileResponse(HERE / "playbook.js", media_type="text/javascript", headers={"Cache-Control": "no-cache"})
+    return FileResponse(HERE / "static" / "playbook.js", media_type="text/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/health")
@@ -89,6 +89,7 @@ async def run(question: str, session_id: str | None = None):
                 "follow_up": len(result["state"].history) > 1 if result.get("state") else False,
                 "type": result["type"],
                 "markdown": result["markdown"],
+                "sources": result.get("sources", []),  # citation cards: what [1] is, shown on hover
                 "tool_calls": len(result["tool_calls"]),
                 "findings": len(result.get("findings", [])),
                 "rejected": len(result.get("rejected", [])),
