@@ -126,7 +126,9 @@ def resolve_source(finding: dict, pages: dict[str, dict]) -> None:
         return
     evidence = finding.get("evidence_text", "")
     parts = [p for p in re.split(r"\s*(?:\.\.\.|…)\s*", evidence) if len(p.strip()) >= 15] or [evidence]
-    for key, page in pages.items():
+    # A snapshot: researchers run in parallel, and another one's fetch can add a page mid-loop
+    # ("dictionary changed size during iteration" crashed a whole run)
+    for key, page in list(pages.items()):
         if page.get("document_url") == url and all(span_in(p, page.get("text", "")) for p in parts):
             finding["source_url"] = key
             return
@@ -267,15 +269,22 @@ def fits_task(finding: dict, result: dict, scope: dict) -> tuple[bool, str]:
                            "school's teams of that gender. Use the sports table's per-team columns, or, if the measure "
                            "exists only department-wide, say so in scope_note")
     confs = scope.get("conferences") or []
-    if confs and not any(has(c) for c in confs):
+    power = scope.get("power_conference")
+    # "Power 5" often comes with its five conferences listed: filtering on power_conference covers them
+    by_conference = any(has(c) for c in confs) or (power and "power_conference" in query)
+    if confs and not by_conference:
         return False, f"the task is about the {', '.join(confs)}, but {qid} doesn't filter on it"
-    if scope.get("power_conference") and "power_conference" not in query and not confs:
+    if power and not by_conference:
         return False, f"the task is about power-conference schools, but {qid} doesn't filter on power_conference"
-    if scope.get("ncaa_divisions") and "ncaa_division" not in query and "classification" not in query:
+    if scope.get("ncaa_divisions") and not by_conference and "ncaa_division" not in query and "classification" not in query:
+        # A conference filter already implies its division (Power 5 schools are Division I)
         return False, f"the task is about NCAA Division {', '.join(scope['ncaa_divisions'])}, but {qid} doesn't filter on ncaa_division"
-    for name, unitids in (scope.get("schools") or {}).items():
-        if unitids and not any(str(u) in query or str(u) in rows for u in unitids) and not has(name):
-            return False, f"the task is about {name}, but {qid} doesn't select it"
+    schools = {n: ids for n, ids in (scope.get("schools") or {}).items() if ids}
+    # Schools named inside a conference task ("the Big Ten, including USC") are covered by the
+    # conference filter; several schools named means a query about any one of them fits
+    if schools and not by_conference and not any(
+            any(str(u) in query or str(u) in rows for u in ids) or has(n) for n, ids in schools.items()):
+        return False, f"the task is about {', '.join(schools)}, but {qid} doesn't select any of them"
     years = set(scope.get("survey_years") or [])
     if years:
         covered = _query_years(result)
@@ -470,11 +479,19 @@ if __name__ == "__main__":
     assert not fits_task(f, sec, {"conferences": ["Big Ten Conference"]})[0]
     assert not fits_task(f, sec, {"power_conference": True})[0]
     assert fits_task(f, sec, {})[0]  # a task that restricts nothing checks nothing
+    # Power 5 listed as its conferences: a power_conference filter covers them (and Division I)
+    p5 = {"query": "SELECT count(*) FILTER (WHERE gap_pp <= 5) AS n FROM v_proportionality WHERE survey_year = 2024 AND power_conference",
+          "columns": ["n"], "rows": [[27]]}
+    assert fits_task(f, p5, {"conferences": ["Southeastern Conference", "Big Ten Conference"], "power_conference": True,
+                             "ncaa_divisions": ["I"], "survey_years": [2024]})[0]
+    # Schools named inside a conference task don't each need selecting
+    assert fits_task(f, sec, {"conferences": ["Southeastern Conference"], "schools": {"Texas": [228778]}})[0]
     # Schools: by unitid or name, in the query or the rows; an unresolved name isn't checked
     one = {"query": "SELECT gap_pp FROM v_proportionality WHERE unitid = 243744 AND survey_year = 2025", "columns": ["gap_pp"], "rows": [[-0.2]]}
     assert fits_task(f, one, {"schools": {"Stanford": [243744]}})[0]
     assert not fits_task(f, one, {"schools": {"Duke": [198419]}})[0]
     assert fits_task(f, one, {"schools": {"Somewhere U": []}})[0]
+    assert fits_task(f, one, {"schools": {"Stanford": [243744], "Duke": [198419]}})[0]  # any one of them
     # Not an EADA query (the curated NIL figures): nothing to check
     assert fits_task(f, {"query": "SELECT value FROM nil_facts", "columns": ["value"], "rows": [[20500000]]}, bball)[0]
     # Digits inside column names aren't numbers the rows must hold

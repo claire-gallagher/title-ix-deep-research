@@ -266,7 +266,7 @@ def _same_result(done: dict[str, dict], result: dict) -> str | None:
     """The id of an earlier query with the same columns and rows (in any order), if there is one."""
     def key(r):
         return sorted(json.dumps(row, default=str) for row in r.get("rows", []))
-    for qid, earlier in done.items():
+    for qid, earlier in list(done.items()):  # snapshot: parallel researchers add results
         if earlier.get("columns") == result.get("columns") and key(earlier) == key(result):
             return qid
     return None
@@ -281,7 +281,8 @@ def run_sql(ctx: RunContextWrapper[Research], query: str) -> str:
         query: A DuckDB SQL query.
     """
     normalized = " ".join(query.split()).rstrip(";").lower()
-    for qid, done in ctx.context.sql_results.items():
+    # A snapshot: researchers run in parallel, and another one's query can land mid-loop
+    for qid, done in list(ctx.context.sql_results.items()):
         if " ".join(done["query"].split()).rstrip(";").lower() == normalized:
             return json.dumps({"error": f"You already ran this exact query: its result is {qid}, above. "
                                "Don't run it again. Write your findings from it, citing sql:" + qid})

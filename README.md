@@ -1,28 +1,30 @@
 # Title IX Deep Research Agent
 
-A research agent for **gender equity in college athletics**. Ask about participation, spending and
-revenue at a school, conference or division, or how revenue sharing and NIL are changing them. It
-answers from the federal Equity in Athletics (EADA) filings, primary legal documents (Title IX
-regulations, the House v. NCAA settlement, NIL Go rules) and recent news, and every number in the
-answer is checked against the query result or text it came from before you see it.
+Live at: https://title-ix-deep-research-agent.cloud.run/ 
 
-## Sample questions: this agent vs. Gemini + Google Search
+In another lifetime, I was a college athlete. My freshman year was the first year that NIL earnings (Name, Image, and Likeness) became a thing, and it quickly became clear that despite Title IX (the federal ruling to prevent sex-based discrimination in sport), in reality things were the wild west (alas, writing this, I am not a millionaire). I wanted to build this agent to better understand revenue trends, existing gaps, recent policy updates, and what can and can't be answered with available data. Unfortunately, a lot of the total financial picture is hidden behind NIL payments that are harder to track publicly, and existing loopholes allow schools to avoid full transparency. 
 
-Both systems got the same question. The baseline is Gemini 3.5 Flash with Google Search grounding.
-The correct answers are computed from the EADA database (SQL in
-[`evals/e2e_cases.jsonl`](evals/e2e_cases.jsonl)). Full answers:
-[`docs/examples.md`](docs/examples.md). Only the most important errors are listed. The query-scope check and
-broad-question mode described below came out of these comparisons. With the scope check, the end-to-end
-evals went from 11/19 to 16/19, and from 5/8 to 7/8 on eight held-out questions written after the fix and
-never used to tune it (`uv run evals/run_evals.py e2e`).
+Ask the research agent about participation, spending and revenue at a school, conference or division, or how revenue sharing and NIL are changing them. It answers from the federal Equity in Athletics (EADA) filings, primary legal documents (Title IX regulations, the House v. NCAA settlement, NIL Go rules) and recent news, and every number in the answer is checked against the query result or text it came from before you see it.
 
-| Question | Correct answer | This agent | Gemini + Search |
+## Where it beats Gemini + Google Search
+
+Its edge is questions answered by a **calculation over the federal filings**: a share of schools,
+a trend, a statistical test. No article has published those numbers, so a search model guesses.
+Both systems got the same question. The baseline is Gemini 3.5 Flash with Google Search, and the
+correct answers are computed by SQL. The last two questions were held out from all tuning.
+
+| Question | Correct | This agent | Gemini + Search |
 |---|---|---|---|
-| Is there a difference between coaching staff sizes between men's and women's college basketball? If so, is that difference statistically significant? | D-I schools with both teams, 2024-25 (n = 356): 5.24 coaches on the men's team vs. 4.87 on the women's. Small but significant (paired t ≈ 7.8). | **Right.** 5.24 vs. 4.85 in 2024-25, called significant, from per-team basketball rows. (Before the scope check it used department-wide coach counts.) | **Off target.** Says countable coaches show "no difference" because NCAA limits are equal; the actual counts differ. Its "statistically significant" is about budgets and support staff. |
-| What percentage of Power 5 schools met Title IX's proportionality test in 2023-24, i.e. women's share of athletes was substantially proportionate to their share of undergraduates? | 27 of 69 schools (39.1%) were within 5 points; the median gap was 6.4 points. No legal cutoff exists, and proportionality is one prong of three. | **Wrong year.** Answered for 2022-23 (65 schools). Its correct 2023-24 finding (6, 10 and 17 of 69 within 1, 2 and 3 points) was rejected by a bug, since fixed, and the follow-up task named the wrong survey year, also fixed. | **Unchecked figure.** "8 of 65 (12.3%)", attributed to a Drake Group paper: 65 schools (the 2023-24 total was 69), cutoff never stated. |
-| How do schools without large football programs still bring in enough revenue to compete in a post-NIL landscape? | Qualitative. Checked for: revenue sources, a correct revenue-sharing cap ($20.5M in 2025-26), and revenue sharing kept separate from NIL. | **Broad and cited** (broad-question mode). Media rights, donors and collectives, fractional revenue-sharing opt-ins, cuts to other sports, each with a source; EADA basketball revenue by classification. Misses student fees. | **Broad, unsourced figures.** Similar coverage; its dollar estimates (e.g. "$6–10M per Big East program") aren't tied to a source. Also misses student fees. |
+| Is there a difference between coaching staff sizes between men's and women's college basketball? If so, is that difference statistically significant? | 5.24 vs. 4.87 coaches per team (D-I, 2024-25), significant | 5.24 vs. 4.85, significant (t = 7.9) | "No difference," since NCAA limits are equal |
+| In 2024-25, what share of SEC schools spent at least 25% of their team expenses on women's teams? | 62.5% (10 of 16) | 62.5%, naming each school | **100%** |
+| How did average total expenses per team for Division I women's volleyball change from 2018-19 to 2024-25? | +29.9% ($1.06M → $1.38M) | +29.9%, with a yearly chart | **+72%** |
 
-Live at: **TODO URL** 
+Every number the agent gives links to its source and the SQL behind it. Full answers, with four more
+data questions: [`docs/examples-data.md`](docs/examples-data.md). On broad questions ("how do
+schools without big football programs compete?") the two cover similar ground. The agent cites each
+claim; Gemini doesn't ([`docs/examples.md`](docs/examples.md)). 
+
+Data questions take 20–60 seconds; broad ones take 1.5–2.5 minutes.
 
 ## Data
 
@@ -46,7 +48,7 @@ flowchart LR
     L -- "tasks, all at once" --> D[Data Researcher<br/>SQL over EADA + curated figures]
     L --> P[Policy Researcher<br/>primary legal documents]
     L --> N[News Researcher<br/>web search]
-    D --> V{Evidence check<br/>in code}
+    D --> V{Evidence + scope check<br/>in code}
     P --> V
     N --> V
     V -- rejected --> R[One repair turn] --> V
@@ -57,48 +59,28 @@ flowchart LR
     W --> S[Citations numbered per source,<br/>Sources list built in code]
 ```
 
-1. **Lead (plan)** reads the question and returns either a clarifying question or a task for every
-   researcher that has part of the answer. They're sent at once and run in parallel, each in a fresh
-   context that sees only its task.
-2. **Data Researcher** writes SQL against a read-only DuckDB copy of EADA (2015-16 through 2024-25,
-   2,203 schools) and a curated table of NIL, revenue-sharing and settlement figures. It sees only the
-   part of the schema its task needs, plus the notes that prevent known wrong answers.
-3. **Policy Researcher** searches 14 primary legal documents (Title IX regulations, the three-part
-   test, the House v. NCAA settlement and the court's approval order, NIL Go rules, the EADA guide).
-4. **News Researcher** searches and reads the web (Tavily) for what happened after the data and the
-   documents. No paywall workarounds. When the Lead labels a question **broad** (how something is
-   playing out across schools, not a number or a rule), two News Researchers take different angles,
-   on the full model, with twice the search and page budget, and the Writer gets about 500 words
-   instead of 250. Data questions run as before. Either way the Writer uses only verified findings,
-   never its own knowledge.
-5. **Evidence check** (`evidence.py`, plain code): a finding survives only if its quote is in what a
-   tool returned this run and every number in its claim is in that quote or query result. For SQL
-   findings it also checks the query itself: a model extracts each data task's scope (sports,
-   conferences, divisions, years, schools) using the database's own values, and the query must filter
-   on it. Numbers from the right table but the wrong sport or year are rejected. A researcher gets one
-   turn to fix rejected findings; the fixes face the same check.
-6. **Lead (review)** sees the verified findings, the gaps the researchers reported and what was
-   rejected, and goes back for more when an important part is unanswered: follow-up tasks for just
-   that part, naming what was already found. At most one more round (`MAX_ROUNDS = 2`). It stops when
-   the findings answer the question or the gap is something no source has.
-7. **Writer** sees only the question and the verified findings. It keeps the four kinds of money apart
-   (school athletics spending, revenue sharing, third-party NIL, House back-pay damages), labels every
-   number with its period, and ends with what the answer can't tell you.
-8. **Citations** are numbered per source in reading order ([1], [2]...). On the page, hovering a
-   citation shows the source, the exact evidence each claim rests on, and the SQL.
+1. **Lead** gives each researcher with part of the answer a task. They run in parallel, each in a fresh
+   context. It asks a clarifying question only when no sensible default exists. A **broad**
+   question (how something is playing out across schools) gets two news angles, a bigger search
+   budget and a longer answer.
+2. **Researchers:** *Data* writes SQL over EADA (2015-16 to 2024-25, 2,203 schools) and curated NIL
+   figures. *Policy* searches 14 primary legal documents. *News* searches the web (Tavily), with no
+   paywall workarounds.
+3. **Evidence check** (plain code):
+   - every quote must be in what a tool returned this run;
+   - every number must be in that quote or query result;
+   - every query must filter on the task's scope (sport, conference, division, years, schools), which
+     a model extracts in the database's own spellings.
 
-Limits per question, enforced in code: 2 research rounds, 10 turns and 8 SQL queries per researcher,
-5 policy searches, 4 web searches. A follow-up question in the same conversation starts from the
-findings already gathered instead of researching again.
+   Rejected findings get one repair turn.
+4. **Lead review** sends one more round, at most, for a part of the question that's still unanswered.
+5. **Writer** uses only verified findings, never its own knowledge. It keeps the kinds of money apart
+   (athletics spending, revenue sharing, NIL, House back-pay), labels every number with its period
+   and ends with limits. Hovering a citation shows the evidence and the SQL.
 
-- **Follow-ups** reuse the conversation's findings: the Lead researches only what they don't cover.
-  *New topic* starts fresh.
-- **Unanswerable questions** say so: individual athletes' NIL earnings aren't public; EADA can't show
-  whether a school complies with Title IX (proportionality is one prong of three).
-- **What the evidence check can't do:** it proves a number was copied faithfully from a query result
-  or a page, and that the query filtered on the task's sport, conference, division, years and schools.
-  It can't tell whether the query computed the right thing within that scope (all teams vs. only
-  schools with both a men's and a women's team, say). That's what the gold-answer evals are for.
+Follow-up questions reuse the conversation's findings. Unanswerable questions (an athlete's NIL
+pay, whether a school complies with Title IX) say so. The check can't tell whether a query computed
+the right thing within its scope; that's what the gold-answer evals are for.
 
 ## Run it
 
@@ -110,31 +92,9 @@ uv run scripts/build_eada.py          # once, offline (raw files: data/README.md
 uv run app.py                         # http://localhost:8000
 ```
 
-## Deploy (Cloud Run, from GitHub)
+Deploying to Cloud Run: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
-Every push to `main` builds with Google Cloud's buildpacks and deploys (entrypoint
-`uvicorn app:app --host 0.0.0.0 --port $PORT`). The database isn't in the repo: it's read from a
-Cloud Storage bucket mounted into the container.
-
-1. Upload `data/eada.duckdb` to the **top level** of a bucket (public access prevented). Re-upload it
-   after changing the build, `data/column_notes.json` or `data/nil_facts.csv`.
-2. Put the Tavily key in Secret Manager as `tavily-api-key`: the key's value only, not the `.env` line.
-3. In the service's *Containers, Volumes, Networking, Security*:
-
-| Setting | Value |
-|---|---|
-| Volume | the bucket, **read-only**, mounted at `/data` |
-| Env vars | `EADA_DB=/data/eada.duckdb` (leading `/`), `VERTEXAI_PROJECT=<project id>`, `CACHE_DIR=/tmp/cache` |
-| Secret as env var | name `TAVILY_API_KEY`, secret `tavily-api-key`, version `latest` |
-| Resources | 2 GiB memory, request timeout 900 s, max instances 1 (conversations live in memory) |
-| Authentication | require authentication, IAP restricted to `columbia.edu` |
-
-4. The service's runtime service account (the default compute account unless you pick another) needs
-   **Secret Manager Secret Accessor** on the secret, **Storage Object Viewer** on the bucket and
-   **Vertex AI User** on the project. A missing grant shows up as a failed deploy (secret) or an
-   error on the first question (bucket, Vertex AI).
-
-##  Root Repo Overview
+## Repo overview
 
 ```
 app.py              FastAPI: the page, /run (live events), /chat (JSON), conversations
@@ -150,4 +110,3 @@ sql/                tables.sql (columns kept), views.sql (derived metrics)
 data/               column_notes.json, nil_facts.csv, sources.json, policy/ (database and raw files: gitignored)
 evals/              plan, scope, data and e2e cases (gold SQL, held-out set); run_evals.py, compare_baseline.py, scoring.py
 ```
-

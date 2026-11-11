@@ -4,6 +4,8 @@
   uv run evals/compare_baseline.py --reuse-agent   rerun only the baseline, with the agent's answers
                                                    from the latest results file
   uv run evals/compare_baseline.py --no-search     baseline without Google Search (no tools at all)
+  uv run evals/compare_baseline.py --ids a,b --from-e2e   other e2e cases, reusing the agent's answers
+                                                   from evals/results/e2e-*.jsonl -> docs/examples-data.md
 
 Baseline: the same model the Lead and Writer use (Gemini 3.5 Flash), asked the bare question with
 Google Search grounding on, so it can look things up too. Both answers are scored with
@@ -89,12 +91,22 @@ def fmt(v, unit):
 
 
 async def main() -> None:
-    cases = [resolve_gold(c) for c in load("e2e_cases.jsonl") if c.get("readme")]
+    ids = set(sys.argv[sys.argv.index("--ids") + 1].split(",")) if "--ids" in sys.argv else None
+    cases = [resolve_gold(c) for c in load("e2e_cases.jsonl") if (c["id"] in ids if ids else c.get("readme"))]
     rows, results = [], []
     previous = {}
     if "--reuse-agent" in sys.argv:
         latest = sorted((HERE / "results").glob("baseline-*.json"))[-1]
         previous = {r["id"]: r["agent"] for r in json.loads(latest.read_text(encoding="utf-8"))}
+    if "--from-e2e" in sys.argv:
+        # The agent's answers from e2e runs (latest answer per case wins): only Gemini is called
+        for path in sorted((HERE / "results").glob("e2e-*.jsonl")):
+            for line in path.read_text(encoding="utf-8").splitlines():
+                r = json.loads(line)
+                if r.get("markdown") and r.get("got") == "report":
+                    previous[r["id"]] = {"answer": r["markdown"], "asked": None, "seconds": r["seconds"],
+                                         "tokens": r.get("tokens") or 0,
+                                         "sources": r["markdown"].partition("## Sources")[2].count("- **[")}
     for case in cases:
         a = previous.get(case["id"]) or await agent(case["question"], case.get("clarify_answer"))
         a.pop("score", None)
@@ -136,8 +148,9 @@ async def main() -> None:
         md.append(r["baseline"]["answer"])
         md.append("\n---")
     (ROOT / "docs").mkdir(exist_ok=True)
-    (ROOT / "docs" / ("examples.md" if SEARCH else "examples-no-search.md")).write_text("\n".join(md) + "\n", encoding="utf-8")
-    print(f"Wrote docs/examples.md and evals/results/baseline-*.json")
+    name = "examples-data.md" if ids else ("examples.md" if SEARCH else "examples-no-search.md")
+    (ROOT / "docs" / name).write_text("\n".join(md) + "\n", encoding="utf-8")
+    print(f"Wrote docs/{name} and evals/results/baseline-*.json")
 
 
 if __name__ == "__main__":

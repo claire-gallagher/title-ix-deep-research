@@ -1,0 +1,5 @@
+{
+  "deploy_url": "https://title-ix-deep-research-agent.cloud.run/",
+  "authors": ["ceg2225"],
+  "path": "research"
+}
