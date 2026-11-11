@@ -6,25 +6,33 @@ In another lifetime, I was a college athlete. My freshman year was the first yea
 
 Ask the research agent about participation, spending and revenue at a school, conference or division, or how revenue sharing and NIL are changing them. It answers from the federal Equity in Athletics (EADA) filings, primary legal documents (Title IX regulations, the House v. NCAA settlement, NIL Go rules) and recent news, and every number in the answer is checked against the query result or text it came from before you see it.
 
-## Where it beats Gemini + Google Search
+## Sample queries
 
 Its edge is questions answered by a **calculation over the federal filings**: a share of schools,
-a trend, a statistical test. No article has published those numbers, so a search model guesses.
-Both systems got the same question. The baseline is Gemini 3.5 Flash with Google Search, and the
-correct answers are computed by SQL. The last two questions were held out from all tuning.
+a trend, a statistical test. No article has published those numbers. Without tools, the model doesn't
+have them; with search, it substitutes a nearby figure, such as an NCAA rule, another report or another
+definition, with no source you can check. Each question below went to three systems:
+- **this agent**;
+- **Gemini 3.5 Flash with no tools and no system prompt**, the same model the agent's Lead and Writer use;
+- **the same model with Google Search**.
 
-| Question | Correct | This agent | Gemini + Search |
-|---|---|---|---|
-| Is there a difference between coaching staff sizes between men's and women's college basketball? If so, is that difference statistically significant? | 5.24 vs. 4.87 coaches per team (D-I, 2024-25), significant | 5.24 vs. 4.85, significant (t = 7.9) | "No difference," since NCAA limits are equal |
-| In 2024-25, what share of SEC schools spent at least 25% of their team expenses on women's teams? | 62.5% (10 of 16) | 62.5%, naming each school | **100%** |
-| How did average total expenses per team for Division I women's volleyball change from 2018-19 to 2024-25? | +29.9% ($1.06M → $1.38M) | +29.9%, with a yearly chart | **+72%** |
+The expected answers are computed by SQL from the EADA tables named below. The last two questions
+were held out from all tuning.
 
-Every number the agent gives links to its source and the SQL behind it. Full answers, with four more
-data questions: [`docs/examples-data.md`](docs/examples-data.md). On broad questions ("how do
-schools without big football programs compete?") the two cover similar ground. The agent cites each
-claim; Gemini doesn't ([`docs/examples.md`](docs/examples.md)). 
+| Question | Expected (source) | This agent | Gemini, no tools | Gemini + Search |
+|---|---|---|---|---|
+| Is there a difference between coaching staff sizes between men's and women's college basketball? If so, is that difference statistically significant? | 5.24 vs. 4.87 coaches per team, D-I 2024-25; significant (t ≈ 7.8). Table `sports` ⨝ `institutions` | 5.24 vs. 4.85, significant (t = 7.9) | "No statistically significant difference" | "No difference" (NCAA limits are equal) |
+| In 2024-25, what share of SEC schools spent at least 25% of their team expenses on women's teams? | 62.5% (10 of 16). View `v_spending_by_gender` ⨝ `conferences` | 62.5%, naming each school | "Not yet available" | **100%** |
+| How did average total expenses per team for Division I women's volleyball change from 2018-19 to 2024-25? | +29.9% ($1.06M → $1.38M). Table `sports` ⨝ `institutions` | +29.9%, with a yearly chart | "An estimated 35% to 60%" | **+72%** |
 
-Data questions take 20–60 seconds; broad ones take 1.5–2.5 minutes.
+Ask them in the live app or with `POST /chat {"message": "..."}`. The full answers from all three
+systems, the SQL behind each expected value, and the sources are in
+[`docs/examples.md`](docs/examples.md). Every number the agent gives links to its evidence and SQL.
+
+On broad questions ("how do schools without big football programs compete?") the agent and Gemini +
+Search cover similar ground, but only the agent cites each claim. The end-to-end evals went from 11/19
+to 16/19 with the query-scope check below, and from 5/8 to 7/8 on held-out questions. Data questions
+take 20–60 seconds; broad ones take 1.5–2.5 minutes.
 
 ## Data
 
