@@ -30,9 +30,9 @@ systems, the SQL behind each expected value, and the sources are in
 [`docs/examples.md`](docs/examples.md). Every number the agent gives links to its evidence and SQL.
 
 On broad questions ("how do schools without big football programs compete?") the agent and Gemini +
-Search cover similar ground, but only the agent cites each claim. The end-to-end evals went from 11/19
-to 16/19 with the query-scope check below, and from 5/8 to 7/8 on held-out questions. Data questions
-take 20–60 seconds; broad ones take 1.5–2.5 minutes.
+Search cover similar ground, but only the agent cites each claim.
+
+Data questions take 20–60 seconds; broad ones take 1.5–2.5 minutes.
 
 ## Data
 
