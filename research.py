@@ -21,6 +21,7 @@ Built from wikipedia-deep-research's pieces. What's different:
 
 import asyncio
 import contextvars
+import functools
 import html
 import json
 import os
@@ -60,6 +61,15 @@ RESEARCHER_TURNS = 10
 MAX_QUERIES_PER_RESEARCHER = 8
 # Web searches per question: each one spends a Tavily credit.
 MAX_SEARCHES = 4
+# Broad questions ("how are schools without football competing?") are answered mostly from the
+# news, where breadth is the point: twice the searches and page reads, two news researchers on
+# different angles, the full model reading, a longer answer. The evidence check is unchanged:
+# every claim still needs a quote from a page fetched this run.
+BROAD = {"search_factor": 2, "pages_per_researcher": 6, "searches_per_researcher": 4, "words": 500}
+
+
+def search_limit(state: "Research") -> int:
+    return MAX_SEARCHES * (BROAD["search_factor"] if state.broad else 1)
 # Set per researcher in run_researcher(); its tools and instructions read them.
 _researcher_queries: contextvars.ContextVar[list | None] = contextvars.ContextVar("researcher_queries", default=None)
 _researcher_task: contextvars.ContextVar[str] = contextvars.ContextVar("researcher_task", default="")
@@ -153,6 +163,10 @@ class Research:
     searches_cached: int = 0  # searches answered from the 24 h cache: no Tavily credit spent
     policy_searches: int = 0
     repairs: list[dict] = field(default_factory=list)  # first-try rejections and how many the repair turn fixed
+    scopes: list[dict] = field(default_factory=list)  # each data task's extracted scope (run log)
+    # A broad question (how schools are adapting, what's changing): the Lead says so in its plan.
+    # The news side then gets more room (see BROAD); data questions run exactly as before.
+    broad: bool = False
     usage: dict[str, dict] = field(default_factory=dict)  # agent name -> requests and tokens
     findings: list[dict] = field(default_factory=list)  # verified only, ids F1..Fn, for the Writer
     rejected: list[dict] = field(default_factory=list)  # failed evidence checks, with the reason
@@ -178,6 +192,9 @@ class Finding(BaseModel):
     access: str
     published: str | None
     period_covered: str | None
+    # Set only when a SQL finding deliberately covers more than the task's scope (EADA has coach
+    # salaries only department-wide): evidence.fits_task lets it through, and the Writer sees it
+    scope_note: str | None = None
 
 
 class Findings(BaseModel):
@@ -190,6 +207,11 @@ class Plan(BaseModel):
     data_task: str | None = None  # numbered questions for the Data Researcher, or null
     policy_task: str | None = None  # ... for the Policy Researcher
     news_task: str | None = None  # ... for the News Researcher
+    # Broad questions only: a second News Researcher on a different angle, in parallel
+    news_task_2: str | None = None
+    # "data" (numbers, rules, a school or group: EADA and the legal documents answer it) or "broad"
+    # (how something is playing out across schools: mostly news). Set by the first plan only.
+    question_type: str | None = None
     # Review only: the parts of the question, in its own words, that the findings don't answer.
     # Follow-up tasks without one are dropped in code (see review()).
     unanswered: list[str] | None = None
@@ -356,8 +378,9 @@ def search_web(ctx: RunContextWrapper[Research], query: str) -> str:
     """
     if not os.environ.get("TAVILY_API_KEY"):
         return json.dumps({"error": "Web search is unavailable (no search API key). Use the policy documents."})
-    if ctx.context.searches >= MAX_SEARCHES:
-        return json.dumps({"error": f"Search limit reached ({MAX_SEARCHES} per question). Work with the pages you have: fetch the most promising results, or report what you found."})
+    limit = search_limit(ctx.context)
+    if ctx.context.searches >= limit:
+        return json.dumps({"error": f"Search limit reached ({limit} per question). Work with the pages you have: fetch the most promising results, or report what you found."})
     ctx.context.searches += 1
     try:
         results, from_cache = web.search(query)
@@ -431,19 +454,34 @@ that give wrong answers. find_columns finds any column left out.
 5. Always SELECT survey_year (EADA) or period_covered and source_org (nil_facts), so the evidence
    carries the period, and a count of schools for any average or total, so the scope is visible.
    For nil_facts, keep the method_note: it says what the number measures.
-6. Every number in a finding must appear in the ONE query result it cites, or the finding is thrown
+6. Every number in a finding must appear in the query result it cites, or the finding is thrown
    away. So compute differences, totals, ratios and percentages in SQL, not in your head, and put
-   the school count in the same SELECT as the figures it qualifies. Don't add numbers from a second
-   query to a finding: make it its own finding.
-7. A trend is one finding per measure, all years in it. Claim: "The University of X's proportionality
+   the school count in the same SELECT as the figures it qualifies. If one fact needs two results
+   (counts from one query, shares from another), cite both: source_url 'sql:q1+q6', with the values
+   of both in evidence_text.
+7. Query exactly the scope the task names: the task message lists it with the data's own values,
+   and each finding's query is checked in code against it (sport, conference, division, years,
+   schools). A query that doesn't filter on them is thrown away. For one sport, use the sports
+   table's per-team columns: institutions' coach counts, coach salaries, recruiting and aid columns
+   cover all of a school's teams of a gender, never one sport. If the data has no per-sport version
+   of a measure (coach salaries, aid), give the department-wide figure, say so in the claim, and set
+   scope_note to what it covers ("all of a school's women's teams; EADA has no per-sport salaries").
+   Use scope_note only for that, or for context a finding deliberately takes wider. If the task asks
+   for a measure the data doesn't have (coach FTEs per sport), use the closest one it does have, say
+   which in the claim, and don't spend queries looking for it.
+8. "How many" or "what share of schools" is a count, not a list: compute it in SQL with the total
+   (e.g. count(*) FILTER (WHERE women_expense_pct >= 40) AS at_least_40, count(*) AS schools). When
+   no rule fixes the cutoff, compute each cutoff the task names in the same query. For a statistical
+   test, compute it in SQL too, with n, the means and the test statistic in one result.
+9. A trend is one finding per measure, all years in it. Claim: "The University of X's proportionality
    gap rose from -0.2 points in 2015-16 to 7.8 in 2024-25 (0.3 in 2016-17, ..., 8.8 in 2023-24)."
    evidence_text: "survey_year=2016, gap_pp=-0.2; survey_year=2017, gap_pp=0.3; ...; survey_year=2025, gap_pp=7.8".
-8. Run at most {MAX_QUERIES_PER_RESEARCHER} queries, and never the same query twice: read the result you have.
+10. Run at most {MAX_QUERIES_PER_RESEARCHER} queries, and never the same query twice: read the result you have.
    If the data can't answer part of the task, say so in gaps: EADA has no NIL deals, and its latest
    year (2024-25) predates revenue sharing.
 
 {FINDINGS_RULES}
-For SQL findings, source_url is 'sql:<query_id>' and evidence_text lists the values, e.g.
+For SQL findings, source_url is 'sql:<query_id>' (or 'sql:q1+q6') and evidence_text lists the values, e.g.
 "survey_year=2023, institution_name=University of X, female_athlete_pct=47.2"."""
 
 
@@ -466,16 +504,23 @@ data_researcher = Agent(
     output_type=AgentOutputSchema(Findings, strict_json_schema=False),
 )
 
-news_researcher = Agent(
-    name="News Researcher",
-    instructions=f"""\
+def news_instructions(ctx, agent) -> str:
+    # A broad question gets a bigger budget (BROAD); the rules about sources don't change
+    broad = ctx.context.broad
+    searches, pages = (BROAD["searches_per_researcher"], BROAD["pages_per_researcher"]) if broad else (3, 3)
+    breadth = ("\nThis is a broad question: cover the main ways it plays out, not just one. Prefer several "
+               "independent sources to several pages from one outlet.\n") if broad else ""
+    return NEWS_PROMPT.format(searches=searches, pages=pages, breadth=breadth)
+
+
+NEWS_PROMPT = """\
 You answer research questions with recent news and reports from the web: what happened after the
 data and the legal documents, or what they don't cover (revenue-sharing splits, lawsuits,
 conference decisions, NIL market figures).
-
-1. Search with search_web: at most 3 searches, each aimed at a question, not repeated with small
+{breadth}
+1. Search with search_web: at most {searches} searches, each aimed at a question, not repeated with small
    wording changes: each costs money. Prefer official bodies, the organisations that published a
-   report, and open news sites to paywalled ones. Fetch the most relevant pages (at most 3) in one turn.
+   report, and open news sites to paywalled ones. Fetch the most relevant pages (at most {pages}) in one turn.
 2. Follow stories to primary sources: when an article reports on a report, filing, press release or
    court document, find and fetch that, and cite it instead of the article.
 3. If a page is 'partial' or 'blocked' (paywall, bot check), don't guess what it says. Use another
@@ -485,7 +530,11 @@ conference decisions, NIL market figures).
 5. Opendorse, On3 and similar companies sell NIL services: their figures are industry_report or
    estimate, not official numbers. Say what each figure measures (deals on one platform, a projection...).
 
-{FINDINGS_RULES}""",
+""" + FINDINGS_RULES.replace("{", "{{").replace("}", "}}")
+
+news_researcher = Agent(
+    name="News Researcher",
+    instructions=news_instructions,
     model=RESEARCHER_MODEL,
     model_settings=SETTINGS,
     tools=[search_web, fetch_page],
@@ -513,7 +562,110 @@ source_type is policy_document; source_url is the 'policy:<chunk_id>' the search
     output_type=AgentOutputSchema(Findings, strict_json_schema=False),
 )
 
-RESEARCHERS = {"data": data_researcher, "news": news_researcher, "policy": policy_researcher}
+RESEARCHERS = {"data": data_researcher, "news": news_researcher, "policy": policy_researcher,
+               "news_2": news_researcher.clone(name="News Researcher B")}
+
+
+# --- The task's scope: what a data task restricts to, in the database's own values ---
+
+
+@functools.cache
+def _vocab() -> dict:
+    """Sports, divisions and conferences as the data spells them (eada.scope_vocabulary)."""
+    try:
+        return eada.scope_vocabulary()
+    except Exception:  # no database: no scope, so the query-fit check checks nothing
+        return {"sports": [], "ncaa_divisions": [], "conferences": []}
+
+
+class Scope(BaseModel):
+    # No defaults: with them the model skipped fields (schools, conferences) it should have filled
+    schools: list[str]
+    conferences: list[str]
+    power_conference: bool | None  # null unless the task says "Power 4/5" or "power conferences"
+    ncaa_divisions: list[str]
+    sports: list[str]
+    survey_years: list[int]
+
+
+def scope_instructions(ctx, agent) -> str:
+    v = _vocab()
+    return f"""\
+Read one research task about U.S. college athletics data and return the scope it restricts the data
+to, as JSON: {{"sports": [], "conferences": [], "power_conference": null, "ncaa_divisions": [],
+"survey_years": [], "schools": []}}.
+- For sports, conferences and divisions, use values exactly as listed below. Map common names to
+  them ("SEC" -> "Southeastern Conference", "Big 12" -> "Big Twelve Conference", "D-I" -> "I"), and
+  leave out ones not in the lists. Schools aren't listed: give them as the task names them.
+- Only what the data must be restricted to. A sport the task excludes or mentions only for contrast
+  ("schools without football programs") is not a scope sport.
+- survey_years: end year of each academic year (2023-24 -> 2024); a range -> every year in it;
+  none named -> []. EADA covers 2016 (2015-16) to 2025 (2024-25).
+- power_conference: true only if the task literally says "Power 4", "Power 5" or "power
+  conference(s)"; otherwise null. Naming the SEC or Big Ten, or Division I, is not that.
+- ncaa_divisions: "I", "II" or "III" for each division the task names ("Division I", "D-II").
+- schools: every individual school the task names, as written ("Duke", "Ohio State").
+Fill every field the task restricts; a task can restrict several. Examples:
+"Women's soccer expenses per team at Big Ten schools, 2021-22 to 2022-23" ->
+  {{"sports": ["Soccer"], "conferences": ["Big Ten Conference"], "survey_years": [2022, 2023]}}
+"Duke's proportionality gap in 2019-20, and the Division II average" ->
+  {{"schools": ["Duke"], "ncaa_divisions": ["II"], "survey_years": [2020]}}
+SPORTS: {', '.join(v['sports'])}
+NCAA DIVISIONS: {', '.join(v['ncaa_divisions'])}
+CONFERENCES: {'; '.join(v['conferences'])}"""
+
+
+scope_extractor = Agent(
+    name="Scope",
+    instructions=scope_instructions,
+    # Not the lite model: it returned only years, missing conferences, divisions and schools that the
+    # full model mapped correctly ('SEC' -> 'Southeastern Conference'). One short call per data task.
+    model=MODEL,
+    model_settings=SETTINGS,
+    output_type=AgentOutputSchema(Scope, strict_json_schema=False),
+)
+
+
+async def extract_scope(task: str, state: "Research") -> dict:
+    """A data task's scope for evidence.fits_task. The model reads the task (it knows "SEC" is the
+    Southeastern Conference; code shouldn't keep that list); code keeps only values the database
+    has, so an invented one can't reject anything. Any failure -> {} (nothing checked)."""
+    try:
+        run = await Runner.run(scope_extractor, task, context=state, max_turns=1)
+        _record_usage(state, scope_extractor.name, run)
+        out = run.final_output
+        s = out if isinstance(out, Scope) else Scope(**json.loads(re.search(r"\{.*\}", str(out), re.S).group(0)))
+    except Exception:
+        return {}
+    v = _vocab()
+    pick = lambda values, allowed: [a for a in allowed if a.lower() in {x.lower() for x in values}]
+    scope = {"sports": pick(s.sports, v["sports"]), "conferences": pick(s.conferences, v["conferences"]),
+             "ncaa_divisions": pick(s.ncaa_divisions, v["ncaa_divisions"]),
+             "survey_years": sorted({y for y in s.survey_years if 2016 <= y <= 2025}),
+             "power_conference": bool(s.power_conference)}
+    try:
+        scope["schools"] = {name: eada.resolve_school(name) for name in s.schools}
+    except Exception:
+        scope["schools"] = {}
+    return {k: val for k, val in scope.items() if val}
+
+
+def describe_scope(scope: dict) -> str:
+    """The scope as the Data Researcher reads it: the exact filters its queries are checked against."""
+    parts = []
+    if scope.get("sports"):
+        parts.append("sports = " + " or ".join(f"'{s}'" for s in scope["sports"]))
+    if scope.get("conferences"):
+        parts.append("conference = " + " or ".join(f"'{c}'" for c in scope["conferences"]))
+    if scope.get("power_conference"):
+        parts.append("power_conference")
+    if scope.get("ncaa_divisions"):
+        parts.append("ncaa_division = " + " or ".join(f"'{d}'" for d in scope["ncaa_divisions"]))
+    if scope.get("survey_years"):
+        parts.append("survey_year in (" + ", ".join(map(str, scope["survey_years"])) + ")")
+    for name, ids in (scope.get("schools") or {}).items():
+        parts.append(f"{name} (unitid {', '.join(map(str, ids))})" if ids else name)
+    return "; ".join(parts)
 
 
 def _parse(output) -> tuple[list[dict], list[str]]:
@@ -535,7 +687,7 @@ def _latest_rows_left_out(accepted: list[dict], state: Research) -> dict | None:
     query result itself, so evidence.verify() passes it like any other."""
     for f in accepted:
         url = f.get("source_url", "")
-        result = state.sql_results.get(url[4:]) if url.startswith("sql:") else None
+        result = evidence.sql_result(url, state.sql_results) if url.startswith("sql:") else None
         if not result or "survey_year" not in result.get("columns", []):
             continue
         col = result["columns"].index("survey_year")
@@ -579,9 +731,10 @@ async def _repair(agent: Agent, result, rejected: list[dict], state: Research) -
     reasons = "\n".join(f"- claim: {r['claim']}\n  source_url: {r['source_url']}\n  rejected because: {r['reason']}" for r in rejected)
     message = (f"The evidence check rejected these findings:\n{reasons}\n\nReply with corrected versions of them only, as "
                "JSON ({\"findings\": [...], \"gaps\": []}). Fix each so every number in its claim appears in its "
-               "evidence_text, copied exactly from a tool result: drop numbers you worked out yourself, or split a finding "
-               "that mixes two query results. Cite policy documents by their 'policy:...' source_url. Leave out a finding "
-               "you can't fix.")
+               "evidence_text, copied exactly from a tool result: drop numbers you worked out yourself. If its numbers come "
+               "from two query results, cite both ('sql:q1+q6') with the values of both in evidence_text. Cite policy documents by their 'policy:...' source_url. Leave out a finding "
+               "you can't fix, including one whose query doesn't cover the sport, schools or year it was about: "
+               "rewording the claim doesn't fix the query, and the Lead sees why it was rejected.")
     try:
         repair = await Runner.run(agent.clone(tools=[]), result.to_input_list() + [{"role": "user", "content": message}],
                                   context=state, max_turns=1)
@@ -598,14 +751,29 @@ async def run_researcher(kind: str, task: str, state: Research, round_no: int = 
     Returns {verified_findings, rejected, gaps} (the Lead's 'research' call in the run log)."""
     hooks = state.hooks
     agent = RESEARCHERS[kind] if round_no == 1 else RESEARCHERS[kind].clone(name=f"{RESEARCHERS[kind].name} {round_no}")
+    if state.broad and kind.startswith("news"):
+        # A broad question: the full model reads the news (Flash-Lite missed conferences and schools
+        # Flash found when extracting scope; judging news pages for a broad question is harder still)
+        agent = agent.clone(model=MODEL)
     call_id = f"plan-{kind}-{round_no}"
     # The board draws the Lead handing this task over, as it did when the Lead called a tool
-    hooks.play_start("Lead", "research", call_id, _play_detail("research", {"kind": kind, "task": task}))
+    # news_2 is drawn as a second news player (the page knows data, policy and news)
+    hooks.play_start("Lead", "research", call_id, _play_detail("research", {"kind": kind.split("_")[0], "task": task}))
     state.researchers += 1
     _researcher_queries.set([])  # this researcher's own query count (each gather task has its own context)
     _researcher_task.set(task)  # read by data_instructions() to size the schema
+    message = f"Task: {task}"
+    scope = {}
+    if kind == "data":
+        # The scope its queries are checked against, extracted first so the researcher filters on the
+        # data's own spellings ('Southeastern Conference', not 'SEC')
+        scope = await extract_scope(task, state)
+        state.scopes.append({"researcher": agent.name, "task": task, "scope": scope})
+        if scope:
+            message += (f"\n\nScope (each query is checked in code against it): {describe_scope(scope)}. "
+                        "A finding that deliberately covers more than this needs a scope_note saying what it covers.")
     try:
-        result = await Runner.run(agent, f"Task: {task}", context=state, hooks=hooks, max_turns=RESEARCHER_TURNS,
+        result = await Runner.run(agent, message, context=state, hooks=hooks, max_turns=RESEARCHER_TURNS,
                                   error_handlers={"max_turns": _write_up_at_turn_limit(agent, state)})
     except Exception as e:
         hooks.record("Lead", "research", {"kind": kind, "task": task}, _error(e), call_id)
@@ -624,13 +792,24 @@ async def run_researcher(kind: str, task: str, state: Research, round_no: int = 
                 continue  # a repair turn re-sending a finding already accepted
             evidence.resolve_source(finding, state.pages)
             ok, reason = evidence.verify(finding, state.pages, state.sql_results)
+            url = finding.get("source_url", "")
+            failed_check = "evidence"
+            if ok and url.startswith("sql:"):
+                # The numbers are in the rows; now check the query covers the task's scope
+                cited = evidence.sql_result(url, state.sql_results)
+                ok, why = evidence.fits_task(finding, cited, scope)
+                reason = f"{reason}; {why}" if ok else why
+                failed_check = "query_fit"
+                finding["query_scope"] = evidence.query_scope(cited, _vocab())
             if ok:
                 finding.update(id=f"F{len(state.findings) + 1}", task=task, researcher=agent.name, check=reason)
                 state.findings.append(finding)
                 accepted.append(finding)
             else:
+                # failed_check lets the run log count query-fit rejections apart: a rising share of them
+                # on questions with sound answers means fits_task is too strict
                 failed.append({"claim": finding.get("claim"), "source_url": finding.get("source_url"), "reason": reason,
-                               "evidence_text": finding.get("evidence_text"), "researcher": agent.name})
+                               "evidence_text": finding.get("evidence_text"), "researcher": agent.name, "check": failed_check})
         return failed
 
     rejected = check(findings)
@@ -653,7 +832,7 @@ async def run_researcher(kind: str, task: str, state: Research, round_no: int = 
     state.gaps += gaps
     hooks.activity(agent.name, f"{len(accepted)} findings verified, {len(rejected)} rejected")
 
-    keys = ("id", "claim", "source_type", "access", "period_covered")
+    keys = ("id", "claim", "source_type", "access", "period_covered", "query_scope")
     brief_rejected = [{k: r[k] for k in ("claim", "source_url", "reason")} for r in rejected]  # the log keeps the rest
     summary = {"verified_findings": [{k: f.get(k) for k in keys} for f in accepted], "rejected": brief_rejected, "gaps": gaps}
     hooks.record("Lead", "research", {"kind": kind, "task": task}, json.dumps(summary), call_id)
@@ -666,7 +845,9 @@ RESEARCHER_LIST = """\
 - data: SQL over EADA, the federal Equity in Athletics data (participation, enrollment, spending,
   revenue and coaching by school, sport, gender and year, 2015-16 through 2024-25; NCAA division and
   conference per school), plus a curated table of NIL, revenue-sharing and House settlement figures.
-  All numbers about schools come from here.
+  All numbers about schools come from here. Its survey_year is the END of the academic year:
+  2023-24 is survey_year 2024. In tasks, name academic years ("2023-24"); if you give a
+  survey_year, use the end year (a follow-up once wrote "2023-24 (survey_year = 2023)" and got 2022-23).
 - policy: primary legal documents: Title IX regulations, the three-part test, House v. NCAA
   settlement terms and the court's final approval order, NIL Go rules, the EADA user's guide.
 - news: web search, for what happened after the data or what it doesn't cover (schools'
@@ -680,11 +861,15 @@ fresh context that sees only its task.
 
 {RESEARCHER_LIST}
 
-Reply with JSON: {{"clarify": ..., "data_task": ..., "policy_task": ..., "news_task": ...}}
-1. If the question needs a school, conference, sport, year range or measure and doesn't say, or is
-   too broad to answer well, set clarify to one short question offering 2-3 concrete options, and
-   every task to null. Ask once at most: if the message includes the user's answer to a clarifying
-   question, plan, choosing sensible defaults.
+Reply with JSON: {{"clarify": ..., "data_task": ..., "policy_task": ..., "news_task": ...,
+"news_task_2": ..., "question_type": ...}}. Write the tasks first; question_type is a label on them.
+1. Research with defaults whenever there are sensible ones, and name them in the tasks: no division
+   given -> Division I; no year -> the latest EADA year (2024-25); a cutoff no rule fixes ("spends
+   roughly equally") -> results at 2-3 common cutoffs; a broad group ("mid-major schools") -> its
+   1-2 most common readings. Set clarify (one short question offering 2-3 concrete
+   options, every task null) only when no default fits: the question depends on something only the
+   user knows ("my school") or is so broad any answer would miss ("How's women's basketball doing?").
+   Ask once at most: if the message includes the user's answer to a clarifying question, plan.
 2. Otherwise give each researcher the question needs a short numbered list of specific questions,
    naming the schools, conference, division, sport, years and measures. Leave the others null.
    Send every researcher that has a part of the answer, all at once, and ask only for what answers
@@ -697,7 +882,14 @@ Reply with JSON: {{"clarify": ..., "data_task": ..., "policy_task": ..., "news_t
 4. Don't ask for what no source has: whether a school is legally compliant with Title IX, or what an
    individual athlete earns. The writer will say so.
 5. Follow-up questions list the findings this conversation already has. Ask only for what they
-   don't cover; if they answer the question, set every task to null."""
+   don't cover; if they answer the question, set every task to null.
+6. question_type: "data" when the answer is numbers or rules: a school, conference or division in
+   EADA, a statistic, what a regulation or the settlement says. "broad" when it asks how something
+   is playing out across schools or the sport (strategies, reactions, what's changing), so most of
+   the answer is in the news. For "broad", give the news side two tasks on different angles (e.g.
+   what schools are doing vs. what the money and rules allow) in news_task and news_task_2, and
+   still send data and policy tasks for any figures or rules the answer needs. For "data",
+   news_task_2 is null. Either way, write every task the question needs: the label doesn't replace them."""
 
 REVIEW_PROMPT = f"""\
 You lead a research team on gender equity in college athletics. Today is {{today}}. Your researchers
@@ -715,6 +907,13 @@ verified findings don't answer. A gap a researcher reported about something the 
 leave it out. If the list is empty, every task must be null.
 Judge against the question the user asked, not against the tasks you sent: a task part that came
 back empty needs no follow-up if the question is answered without it.
+A finding answers a part only if it covers that part's scope. Each SQL finding shows "[query
+covered: ...]", worked out from the query in code: trust it over the claim's wording. A figure for
+all sports together or "department-wide columns" doesn't answer a question about one sport; 2024-25
+doesn't answer a question about 2023-24; a list of schools doesn't answer "what share of schools".
+Findings rejected because their query didn't fit mean that part is still unanswered: send the data
+researcher back with the exact table, filter and year (e.g. "per-team expenses from the sports
+table, sports = 'Soccer', survey_year 2022").
 - If a part of the QUESTION is still unanswered (a number it asks for, a rule it asks about), and a
   researcher could plausibly find it, set that researcher's task to a short numbered list of
   questions for just that part, saying what was already found so it isn't repeated. Name a
@@ -778,7 +977,9 @@ async def make_plan(question: str, state: Research) -> Plan:
 async def review(question: str, sent: dict[str, str], state: Research, round_no: int) -> Plan:
     """The Lead's look at what came back: follow-up tasks for the gaps, or none. Also run on its own
     by evals/run_evals.py plan (cases with findings)."""
-    findings = "\n".join(f"[{f['id']}] ({f.get('period_covered') or 'period n/a'}) {f['claim']}" for f in state.findings)
+    # query_scope is what the cited query covered, worked out in code: judge fit by it, not the claim's wording
+    findings = "\n".join(f"[{f['id']}] ({f.get('period_covered') or 'period n/a'}) {f['claim']}"
+                         + (f" [query covered: {f['query_scope']}]" if f.get("query_scope") else "") for f in state.findings)
     rejected = "\n".join(f"- {r['claim']} (rejected: {r['reason']})" for r in state.rejected[-8:])
     tasks = "\n".join(f"{kind}: {task}" for kind, task in sent.items())
     message = (f"Question: {question}\n\nTasks sent:\n{tasks}\n\nVerified findings:\n{findings or '(none)'}\n\n"
@@ -788,6 +989,7 @@ async def review(question: str, sent: dict[str, str], state: Research, round_no:
     _record_usage(state, lead.name, run)
     plan = _as_plan(run.final_output)
     plan.clarify = None  # reviewing, not asking the user
+    plan.news_task_2 = None  # a follow-up is one task per researcher, for just the gap
     if not plan.unanswered:
         # No part of the question named as unanswered: no second round, whatever tasks came with it.
         # The review once sent a whole round for coach pay and OCR tolerance rules on a compliance
@@ -799,17 +1001,18 @@ async def review(question: str, sent: dict[str, str], state: Research, round_no:
 
 def plan_tasks(plan: Plan) -> dict[str, str]:
     """{kind: task} for every researcher the plan sends, in a fixed order."""
-    tasks = {"data": plan.data_task, "policy": plan.policy_task, "news": plan.news_task}
+    tasks = {"data": plan.data_task, "policy": plan.policy_task, "news": plan.news_task, "news_2": plan.news_task_2}
+    if plan.question_type != "broad":
+        tasks["news_2"] = None  # a second news angle only for broad questions
     return {kind: t.strip() for kind, t in tasks.items() if t and t.strip()}
 
 
 # --- The writer: one call, after the research ends ---
 
-writer = Agent(
-    name="Writer",
-    instructions="""\
+WRITER_PROMPT = """\
 Write a short answer in markdown, using only the verified findings you're given. Each finding has
-an id (F3), a source type, an access level and the period it covers.
+an id (F3), a source type, an access level and the period it covers. Never add a fact, figure, name
+or example that isn't in a finding, even a well-known one: it can't be cited or checked.
 
 Length: about 250 words; never more than 400. A reader should get the answer in the first lines.
 If earlier_in_this_conversation is given, this is a follow-up: answer the new question directly,
@@ -840,6 +1043,10 @@ building on those answers without repeating them, and shorter if the question is
   them). Never call total expenses "operating expenses".
 - Label every number with the period it covers ("in 2023-24", "projected for 2025-26"), and say
   what group it covers ("Division I schools", "Big Ten schools") when the finding says.
+- A finding's query_scope says what its query covered, worked out in code. Never present a finding
+  as answering a narrower question than its scope: "all sports together" or "department-wide
+  columns" is not a figure for one sport, and a different year than the question's is not its answer.
+  If that leaves part of the question unanswered, say so.
 - Weigh sources: official filings and official bodies, then policy documents, then industry reports,
   then news, then estimates. Attribute anything below official: "Opendorse projects...", "according
   to <outlet>...". A finding with access 'snippet' or 'partial' rests on text that couldn't be read
@@ -859,7 +1066,25 @@ building on those answers without repeating them, and shorter if the question is
   gap, a rejected area, EADA lagging real time, proportionality being one prong of Title IX's
   three-part test and not by itself showing compliance).
 - Don't write a Sources section: it's added after you.
-- Plain, specific sentences. No "pivotal", "landscape", "it is worth noting".""",
+- Plain, specific sentences. No "pivotal", "landscape", "it is worth noting"."""
+
+_BROAD_LENGTH = (f"Length: about {BROAD['words']} words; never more than {BROAD['words'] + 200}. This is a broad question: "
+                 "cover each distinct way it plays out that the findings support, not only the strongest one. "
+                 "A reader should get the answer in the first lines.")
+
+
+def writer_instructions(ctx, agent) -> str:
+    # A broad question gets room for breadth; what may be said (findings only, cited) doesn't change
+    state = ctx.context
+    if not getattr(state, "broad", False):
+        return WRITER_PROMPT
+    return (WRITER_PROMPT.replace("Length: about 250 words; never more than 400. A reader should get the answer in the first lines.", _BROAD_LENGTH)
+            .replace("a few bullets, or at most 3 short ### sections", "bullets, or up to 5 short ### sections"))
+
+
+writer = Agent(
+    name="Writer",
+    instructions=writer_instructions,
     model=MODEL,
     model_settings=SETTINGS,
 )
@@ -934,7 +1159,7 @@ def source_cards(numbers: dict[str, int], cited_ids: set[str], state: Research) 
                 "published": first.get("published"),
                 "claims": [{"claim": f["claim"], "evidence": f.get("evidence_text"), "period": f.get("period_covered")} for f in uses]}
         if url.startswith("sql:"):
-            result = state.sql_results.get(url[4:], {})
+            result = evidence.sql_result(url, state.sql_results) or {}
             query = result.get("query", "")
             if "nil_facts" in query.lower() and "institutions" not in query.lower() and "sports" not in query.lower():
                 # The curated figures table: its rows come from reports and the court record, not EADA
@@ -987,6 +1212,7 @@ async def deep_research(question: str, hooks: ResearchHooks, prior: Research | N
 async def _deep_research(question: str, state: Research, hooks: ResearchHooks) -> dict:
     # 1. Plan: clarify, or a task for each researcher the question needs
     plan = await make_plan(question, state)
+    state.broad = plan.question_type == "broad"
     tasks = plan_tasks(plan)
     if plan.clarify and not tasks:
         return {"type": "clarify", "markdown": plan.clarify.strip(), "tool_calls": hooks.tool_calls, "state": state}
@@ -1003,7 +1229,7 @@ async def _deep_research(question: str, state: Research, hooks: ResearchHooks) -
             break
 
     # 3. Write: one call. The Writer sees the question and the verified findings only.
-    keys = ("id", "claim", "evidence_text", "source_type", "access", "published", "period_covered")
+    keys = ("id", "claim", "evidence_text", "source_type", "access", "published", "period_covered", "query_scope", "scope_note")
     brief = {
         "question": question,
         "verified_findings": [{k: f.get(k) for k in keys} for f in state.findings],
@@ -1013,7 +1239,7 @@ async def _deep_research(question: str, state: Research, hooks: ResearchHooks) -
     if state.history:
         # A follow-up: answer the new question; the earlier answers are context, not to be repeated
         brief["earlier_in_this_conversation"] = state.history[-3:]
-    report = await Runner.run(writer, json.dumps(brief, indent=1, default=str), hooks=hooks)
+    report = await Runner.run(writer, json.dumps(brief, indent=1, default=str), context=state, hooks=hooks)
     _record_usage(state, writer.name, report)
     markdown = str(report.final_output).strip()
 

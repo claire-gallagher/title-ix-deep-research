@@ -132,6 +132,32 @@ def find_columns(query: str) -> dict:
     return {"columns": found[:40], "truncated": len(found) > 40, "notes": notes}
 
 
+def scope_vocabulary() -> dict:
+    """The values a research task's scope can name, as the data spells them: the scope extractor
+    picks from these, and evidence.fits_task checks queries against them. Read from the database,
+    so a new conference or sport needs no code change."""
+    db, _ = _connect()
+    conferences = [r[0] for r in db.execute(
+        "SELECT DISTINCT name FROM (SELECT basketball_conference AS name FROM conferences "
+        "UNION SELECT football_conference FROM conferences) WHERE name IS NOT NULL ORDER BY name").fetchall()]
+    return {"sports": enum_values("sports", "sports").get("enum_values", []),
+            "ncaa_divisions": enum_values("institutions", "ncaa_division").get("enum_values", []),
+            "conferences": conferences}
+
+
+def resolve_school(name: str) -> list[int]:
+    """unitids for a school name: an exact alias, else an unambiguous partial match (at most 2, e.g.
+    a main and a branch campus). [] when unknown or ambiguous, so the scope check skips it rather
+    than reject a query for a school it can't place."""
+    db, _ = _connect()
+    name = name.strip().lower()
+    exact = [r[0] for r in db.execute("SELECT DISTINCT unitid FROM institution_aliases WHERE alias = ?", [name]).fetchall()]
+    if exact:
+        return exact
+    partial = [r[0] for r in db.execute("SELECT DISTINCT unitid FROM institution_aliases WHERE alias LIKE ?", [f"%{name}%"]).fetchall()]
+    return partial if 0 < len(partial) <= 2 else []
+
+
 def enum_values(table: str, column: str) -> dict:
     _, mappings = _connect()
     t = next((t for t in mappings["tables"] if t["name"] == table), None)

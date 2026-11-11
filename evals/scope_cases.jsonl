@@ -1,0 +1,11 @@
+{"id": "sport-division-year", "task": "1. For NCAA Division I men's and women's basketball in 2023-24, average head plus assistant coaches per team.", "scope": {"sports": ["Basketball"], "ncaa_divisions": ["I"], "survey_years": [2024]}}
+{"id": "abbrev-conference", "task": "1. Share of SEC schools spending at least 25% of team expenses on women's teams in 2024-25.", "scope": {"conferences": ["Southeastern Conference"], "survey_years": [2025]}}
+{"id": "two-conferences-range", "task": "1. Total athletic revenue for Big 12 and Pac-12 schools from 2019-20 through 2021-22.", "scope": {"conferences": ["Big Twelve Conference", "Pacific-12 Conference"], "survey_years": [2020, 2021, 2022]}}
+{"id": "negated-sport", "task": "1. Revenue for Division I schools without football programs, 2024-25.", "scope": {"ncaa_divisions": ["I"], "survey_years": [2025]}}
+{"id": "school", "task": "1. Stanford's female athlete share vs undergraduate share, 2024-25.", "scope": {"schools": ["stanford"], "survey_years": [2025]}}
+{"id": "power-literal", "task": "1. Proportionality gap for Power 4 schools in 2024-25.", "scope": {"power_conference": true, "survey_years": [2025]}}
+{"id": "no-scope", "task": "1. How many schools filed EADA reports in each year?", "scope": {}}
+{"id": "two-schools-sport", "task": "1. Women's rowing expenses per team at Michigan and Ohio State, 2022-23.", "scope": {"sports": ["Rowing"], "schools": ["michigan", "ohio state"], "survey_years": [2023]}}
+{"id": "d3-ivy", "task": "1. Compare women's ice hockey participation at Ivy League schools with Division III schools in 2018-19.", "scope": {"sports": ["Ice Hockey"], "conferences": ["Ivy Group"], "ncaa_divisions": ["III"], "survey_years": [2019]}}
+{"id": "contrast-sport", "task": "1. Women's soccer revenue per team at Big East schools, 2024-25, compared with what the same schools report for all sports combined.", "scope": {"sports": ["Soccer"], "conferences": ["Big East Conference"], "survey_years": [2025]}}
+{"id": "trend-no-year-cap", "task": "1. Women's volleyball average expenses per team in Division II, every year of EADA data.", "scope": {"sports": ["Volleyball"], "ncaa_divisions": ["II"], "survey_years": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]}}

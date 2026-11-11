@@ -55,12 +55,19 @@ async def baseline(question: str, attempt: int = 1) -> dict:
             "tokens": (usage.prompt_tokens or 0) + (usage.completion_tokens or 0), "web_sources": web_sources}
 
 
-async def agent(question: str) -> dict:
+async def agent(question: str, clarify_answer: str | None = None) -> dict:
     started = time.time()
     hooks = research.ResearchHooks(AgentContexts(), lambda e: None)
     result = await research.deep_research(question, hooks)
+    asked = None
+    # A clarifying question isn't an answer: reply the way a user on the page would (app.compose)
+    if result["type"] == "clarify" and clarify_answer:
+        asked = result["markdown"]
+        hooks = research.ResearchHooks(AgentContexts(), lambda e: None)
+        result = await research.deep_research(
+            f"{question}\n\nClarifying question: {asked}\nUser's answer: {clarify_answer}", hooks)
     state = result["state"]
-    return {"answer": result["markdown"], "seconds": round(time.time() - started, 1),
+    return {"answer": result["markdown"], "asked": asked, "seconds": round(time.time() - started, 1),
             "tokens": sum(u["input_tokens"] + u["output_tokens"] for u in state.usage.values()),
             "model_calls": sum(u["requests"] for u in state.usage.values()),
             "citations_ok": citations_ok(result["markdown"]), "sources": len(result.get("sources", []))}
@@ -77,7 +84,7 @@ def fmt(v, unit):
     if unit == "%":
         return f"{v:.1f} points"
     if unit == "count":
-        return f"{v:,.0f}"
+        return f"{v:,.0f}" if float(v).is_integer() else f"{v:,.2f}"
     return f"${v:,.0f}"
 
 
@@ -89,12 +96,12 @@ async def main() -> None:
         latest = sorted((HERE / "results").glob("baseline-*.json"))[-1]
         previous = {r["id"]: r["agent"] for r in json.loads(latest.read_text(encoding="utf-8"))}
     for case in cases:
-        a = previous.get(case["id"]) or await agent(case["question"])
+        a = previous.get(case["id"]) or await agent(case["question"], case.get("clarify_answer"))
         a.pop("score", None)
         b = await baseline(case["question"])
         sa = score(case, a["answer"].partition("## Sources")[0])
         sb = score(case, b["answer"])
-        results.append({"id": case["id"], "question": case["question"], "facts": case.get("facts", []),
+        results.append({"id": case["id"], "question": case["question"], "clarify_answer": case.get("clarify_answer"), "facts": case.get("facts", []),
                         "agent": {**a, "score": sa}, "baseline": {**b, "score": sb}})
         print(json.dumps({"id": case["id"], "agent": verdict(sa), "baseline": verdict(sb)}, ensure_ascii=False))
 
@@ -122,10 +129,13 @@ async def main() -> None:
             if v:
                 md.append(f"\nForbidden claim{'s' if len(v) > 1 else ''} ({'agent' if who == 'agent' else 'baseline'}): " + " / ".join(f"“{s}”" for s in v))
         md.append("\n### This agent\n")
+        if r["agent"].get("asked"):
+            md.append(f"> **Asked first:** {r['agent']['asked']}  \n> **Answer given:** {r['clarify_answer']}\n")
         md.append(r["agent"]["answer"])
         md.append(f"\n### {LABEL}\n")
         md.append(r["baseline"]["answer"])
         md.append("\n---")
+    (ROOT / "docs").mkdir(exist_ok=True)
     (ROOT / "docs" / ("examples.md" if SEARCH else "examples-no-search.md")).write_text("\n".join(md) + "\n", encoding="utf-8")
     print(f"Wrote docs/examples.md and evals/results/baseline-*.json")
 

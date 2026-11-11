@@ -38,6 +38,10 @@ def save(question: str, state, result: dict, started: float) -> Path | None:
             "pages_fetched": sum(c["name"] == "fetch_page" for c in state.hooks.tool_calls),
             "findings_verified": len(state.findings),
             "findings_rejected": len(state.rejected),
+            # Claims the query-fit check rejected, on the first try or the repair (each claim once).
+            # A rising share on questions with sound answers means evidence.fits_task is too strict.
+            "query_fit_rejected": len({x.get("claim") for x in [*state.rejected, *(f for r in getattr(state, "repairs", []) for f in r["first_try"])]
+                                       if x.get("check") == "query_fit"}),
             **totals,
         }
         run = {
@@ -50,6 +54,7 @@ def save(question: str, state, result: dict, started: float) -> Path | None:
             "findings": [{k: f.get(k) for k in ("id", "researcher", "claim", "source_url", "source_type", "access", "evidence_text", "check")} for f in state.findings],
             "rejected": state.rejected,
             "repairs": getattr(state, "repairs", []),
+            "scopes": getattr(state, "scopes", []),  # what each data task's queries were checked against
             "gaps": state.gaps,
             "citation_check": result.get("citation_check"),
             "tool_calls": tool_calls,
@@ -78,15 +83,23 @@ def list_runs(n: int = 15) -> None:
     if not runs:
         print(f"No runs yet in {RUNS_DIR}.")
         return
-    print(f"{'file':<28} {'outcome':<8} {'sec':>5} {'ok':>3} {'rej':>3} {'web$':>4} {'cache':>5} {'tokens':>8}  question")
+    print(f"{'file':<28} {'outcome':<8} {'sec':>5} {'ok':>3} {'rej':>3} {'fit':>3} {'web$':>4} {'cache':>5} {'tokens':>8}  question")
     for path in runs:
         r = _load(path)
         s = r["summary"]
         tokens = s.get("input_tokens", 0) + s.get("output_tokens", 0)
         print(f"{path.stem[:28]:<28} {s['outcome'] or '':<8} {s['seconds']:>5} {s['findings_verified']:>3} "
-              f"{s['findings_rejected']:>3} {s['searches_live']:>4} {s['searches_cached']:>5} {tokens:>8}  {r['question'][:60]}")
-    live = sum(_load(p)["summary"]["searches_live"] for p in _runs())
-    print(f"\n{len(_runs())} runs logged; {live} live Tavily searches among them (web$ = credits spent).")
+              f"{s['findings_rejected']:>3} {s.get('query_fit_rejected', 0):>3} {s['searches_live']:>4} {s['searches_cached']:>5} "
+              f"{tokens:>8}  {r['question'][:60]}")
+    every = [_load(p)["summary"] for p in _runs()]
+    live = sum(s["searches_live"] for s in every)
+    fit = [s for s in every if "query_fit_rejected" in s]
+    print(f"\n{len(every)} runs logged; {live} live Tavily searches among them (web$ = credits spent).")
+    if fit:
+        # Per verified finding, so busier runs don't look worse: if this climbs, check `runlog.py <file>`
+        # for sound findings fits_task turned away before tightening prompts further
+        rate = sum(s["query_fit_rejected"] for s in fit) / max(1, sum(s["findings_verified"] for s in fit))
+        print(f"fit = claims rejected by the query-fit check: {rate:.0%} of verified findings over {len(fit)} runs.")
 
 
 _REPEAT_MARKERS = ("already ran this exact query", "same rows as", "Query limit reached", "Search limit reached")

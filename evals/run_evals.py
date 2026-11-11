@@ -2,6 +2,8 @@
 
   uv run evals/run_evals.py plan        the Lead alone: clarify when it should? the right researchers?
                                          (one model call per case: cheap)
+  uv run evals/run_evals.py scope       the scope extractor alone: exact sports, conferences, divisions,
+                                         years and schools a data task restricts to (one call per case)
   uv run evals/run_evals.py data        the Data Researcher alone, on tasks with gold answers computed
                                          from the database: right numbers? queries, errors, tokens
   uv run evals/run_evals.py e2e         whole runs: clarify vs. report, gold numbers in the report,
@@ -80,7 +82,12 @@ async def eval_plan(case: dict) -> dict:
     ok = clarified == case["clarify"]
     if not case["clarify"]:
         ok = ok and set(case.get("need", [])) <= kinds and not (set(case.get("avoid", [])) & kinds)
-    return {"id": case["id"], "ok": ok, "clarified": clarified, "kinds": sorted(kinds), "plan": plan.model_dump()}
+    if "question_type" in case:
+        # data vs. broad decides the budget and the Writer's length: a data question marked broad
+        # would leave the path the e2e evals measured
+        ok = ok and (plan.question_type or "data") == case["question_type"]  # unset runs as data (_deep_research)
+    return {"id": case["id"], "ok": ok, "clarified": clarified, "kinds": sorted(kinds),
+            "question_type": plan.question_type, "plan": plan.model_dump()}
 
 
 # --- The Data Researcher alone ---
@@ -106,6 +113,20 @@ async def eval_data(case: dict) -> dict:
         "sql": [c["args"].get("query") for c in calls if c["name"] == "run_sql" and isinstance(c["args"], dict)],
         "rejected_reasons": [f"{r['reason']} | claim: {r['claim']} | evidence: {r['evidence_text']}" for r in state.rejected],
     }
+
+
+# --- The scope extractor alone ---
+
+
+async def eval_scope(case: dict) -> dict:
+    """Does the extractor return exactly the scope a data task restricts to, in the data's values?
+    A missed value lets a wrong query through; an extra one throws a right query away. So the whole
+    scope must match, not just the expected keys."""
+    got = await research.extract_scope(case["task"], new_state())
+    got_cmp = {**got, "schools": sorted(n.lower() for n in got.get("schools", {}))} if "schools" in got else got
+    want = {k: (sorted(v) if isinstance(v, list) else v) for k, v in case["scope"].items()}
+    got_cmp = {k: (sorted(v) if isinstance(v, list) else v) for k, v in got_cmp.items()}
+    return {"id": case["id"], "ok": got_cmp == want, "got": got, "want": case["scope"]}
 
 
 # --- Whole runs ---
@@ -147,7 +168,7 @@ async def eval_e2e(case: dict) -> dict:
     return out
 
 
-RUNNERS = {"plan": ("plan_cases.jsonl", eval_plan), "data": ("data_cases.jsonl", eval_data), "e2e": ("e2e_cases.jsonl", eval_e2e)}
+RUNNERS = {"plan": ("plan_cases.jsonl", eval_plan), "scope": ("scope_cases.jsonl", eval_scope), "data": ("data_cases.jsonl", eval_data), "e2e": ("e2e_cases.jsonl", eval_e2e)}
 
 
 async def main() -> None:

@@ -5,6 +5,8 @@ A researcher returns findings as {claim, evidence_text, source_url, ...}. verify
   2. the evidence text appears in that source (exactly, or as a close fuzzy match), and
   3. every number in the claim also appears in the evidence.
 Rule 3 is what stops "8-12%" in the claim from resting on a teaser paragraph that never said it.
+For SQL findings, fits_task() then checks the query itself against the task's scope (sport, division,
+conference, year, school), not just that the numbers are in its rows.
 
 Stdlib only, so it runs anywhere: `uv run evidence.py` runs the self-check.
 """
@@ -16,7 +18,9 @@ from difflib import SequenceMatcher
 # Partial pages and snippets get accepted, but the Writer must label them.
 ACCESS_LABELS = {"full", "partial", "snippet"}
 
-_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# Digits inside an identifier aren't figures: 'count_le_25=27' holds 27, not 25 (and not the 5 a
+# retry one character later would find, hence the digit in the lookbehind)
+_NUMBER = re.compile(r"(?<![A-Za-z_\d])\d+(?:\.\d+)?")
 
 
 def normalize(text: str) -> str:
@@ -43,7 +47,9 @@ def _end_year(m: re.Match) -> str:
 
 
 # Numbers that are part of a name, not a figure: "Power 4", "Big 12", "Pac-12", "Group of 5".
-_NAMES_WITH_NUMBERS = re.compile(r"\b(power|group of)[ -]?(4|5|four|five)\b|\b(big|pac)[ -]?(10|12)\b|\bg5\b|\bp[45]\b")
+# 'Pacific-12' too: the scope step hands researchers the data's spelling ('Pacific-12 Conference'),
+# and a correct finding was rejected for the 12 in it
+_NAMES_WITH_NUMBERS = re.compile(r"\b(power|group of)[ -]?(4|5|four|five)\b|\b(big|pac|pacific)[ -]?(10|12)\b|\bg5\b|\bp[45]\b")
 
 
 def numbers(text: str) -> set[str]:
@@ -126,6 +132,21 @@ def resolve_source(finding: dict, pages: dict[str, dict]) -> None:
             return
 
 
+def sql_result(url: str, sql_results: dict[str, dict]) -> dict | None:
+    """The result a 'sql:q3' source names, or for 'sql:q1+q6' the two combined: a share from one
+    query and the counts from another ("27 of 69 schools, 39.1%") are one fact, and the researcher
+    kept losing it by splitting or dropping half. Every number must still be in a query that ran.
+    None if any id wasn't run."""
+    ids = url.removeprefix("sql:").split("+")
+    results = [sql_results.get(i.strip()) for i in ids]
+    if not ids or any(r is None for r in results):
+        return None
+    if len(results) == 1:
+        return results[0]
+    return {"query": "\n;\n".join(r.get("query", "") for r in results), "columns": [],
+            "rows": [row for r in results for row in r.get("rows", [])]}
+
+
 def verify(finding: dict, pages: dict[str, dict], sql_results: dict[str, dict]) -> tuple[bool, str]:
     """Check one finding against what this run retrieved. Returns (ok, reason)."""
     claim = finding.get("claim", "")
@@ -136,17 +157,21 @@ def verify(finding: dict, pages: dict[str, dict], sql_results: dict[str, dict]) 
 
     in_evidence = numbers(evidence)
     missing = {n for n in numbers(claim) if not _covered(n, in_evidence)}
-    if missing and url.startswith("sql:") and url.removeprefix("sql:") in sql_results:
+    result = sql_result(url, sql_results) if url.startswith("sql:") else None
+    if missing and result is not None:
         # A year the query filtered on ("WHERE survey_year = 2025") is a fact about the result even
-        # when it isn't a column: "342 D-I schools in 2024-25" from that query is right. Only years:
-        # every other number must still be in the rows.
-        query_years = {n for n in numbers(sql_results[url.removeprefix("sql:")].get("query", "")) if n.isdigit() and 2000 <= int(n) <= 2099}
-        missing = {n for n in missing if n not in query_years}
+        # when it isn't a column: "342 D-I schools in 2024-25" from that query is right. So is a
+        # cutoff it compared against ("FILTER (WHERE gap_pp <= 5)" -> "within 5 points"). Only
+        # those: every other number must still be in the rows.
+        query = result.get("query", "")
+        query_years = {n for n in numbers(query) if n.isdigit() and 2000 <= int(n) <= 2099}
+        cutoffs = {n for lit in re.findall(r"(?:<=|>=|<|>|=|between)\s*(-?\d+(?:\.\d+)?(?:\s+and\s+-?\d+(?:\.\d+)?)?)", query, re.I)
+                   for n in numbers(lit)}
+        missing = {n for n in missing if n not in query_years | cutoffs}
     if missing:
         return False, f"numbers in the claim that aren't in the evidence: {sorted(missing)}"
 
     if url.startswith("sql:"):
-        result = sql_results.get(url.removeprefix("sql:"))
         if result is None:
             return False, f"no query {url} was run in this research"
         absent = {n for n in numbers(evidence) if not _covered(n, _numbers_in_rows(result.get("rows", [])))}
@@ -165,6 +190,102 @@ def verify(finding: dict, pages: dict[str, dict], sql_results: dict[str, dict]) 
     if not all(span_in(p, page.get("text", "")) for p in parts):
         return False, "evidence_text not found in the retrieved text"
     return True, f"found in retrieved text ({page.get('access', 'full')} access)"
+
+
+# --- Does the query fit the task? ---
+# verify() proves a finding's numbers came out of the query it cites. That isn't enough: a coaching
+# question got department-wide coach counts for the wrong year, every number genuinely in the rows.
+# fits_task() checks the query against the task's scope: the sports, conferences, divisions, years
+# and schools the task restricts to. A model extracts that scope from the task, picking values from
+# the database's own vocabulary (eada.scope_vocabulary), and code keeps only values that exist; the
+# check itself is plain string matching against the query and its rows. No list of names lives here.
+
+# Institution-level per-gender columns: all of a school's men's or women's teams together, never one
+# sport (data/column_notes.json). Joined to a sports row they are still department-wide.
+_DEPARTMENT_WIDE = re.compile(r"\b(num_hdcoach|num_ascoach|hdcoach_sal\w*|ascoach_sal\w*|recruitexp|studentaid)_\w+", re.I)
+_EADA_TABLES = re.compile(r"\b(institutions|sports|v_proportionality|v_spending_by_gender|conferences)\b", re.I)
+
+
+def _query_years(result: dict) -> set[int]:
+    """The survey years a result covers: from its survey_year column, else from the query's filter."""
+    cols = result.get("columns", [])
+    if "survey_year" in cols:
+        i = cols.index("survey_year")
+        return {r[i] for r in result.get("rows", []) if isinstance(r, (list, tuple)) and isinstance(r[i], int)}
+    query = result.get("query", "")
+    years = {int(y) for v in re.findall(r"survey_year\s*(?:=|in\s*\()\s*([^)]*)", query, re.I) for y in re.findall(r"20\d{2}", v)}
+    for lo, hi in re.findall(r"survey_year\s+between\s+(20\d{2})\s+and\s+(20\d{2})", query, re.I):
+        years |= set(range(int(lo), int(hi) + 1))
+    return years
+
+
+def _years_label(years) -> str:
+    return ", ".join(f"{y - 1}-{str(y)[2:]}" for y in sorted(years))
+
+
+def query_scope(result: dict, vocab: dict) -> str:
+    """What a query covered, in a few words, from the query itself: shown to the review and Writer."""
+    query = normalize(result.get("query", ""))
+    sports = sorted(s for s in vocab.get("sports", []) if f"'{s.lower()}'" in query or f"%{s.lower()}%" in query)
+    parts = [f"sport: {', '.join(sports)}" if sports else "all sports together"]
+    if _DEPARTMENT_WIDE.search(query):
+        parts.append("department-wide columns (all teams of a gender, not one sport)")
+    confs = [c for c in vocab.get("conferences", []) if f"'{c.lower()}'" in query]
+    if confs:
+        parts.append("conference: " + ", ".join(confs))
+    years = _query_years(result)
+    if years:
+        parts.append("survey years " + _years_label(years))
+    if "ncaa_division" in query:
+        parts.append("by NCAA division")
+    if "power_conference" in query:
+        parts.append("power conferences")
+    return "; ".join(parts)
+
+
+def fits_task(finding: dict, result: dict, scope: dict) -> tuple[bool, str]:
+    """Check that a SQL finding's query covers the task's scope. Returns (ok, reason).
+
+    scope: {sports, conferences, ncaa_divisions, survey_years, power_conference, schools: {name: [unitid]}},
+    values as the data spells them. A dimension the task doesn't restrict is not checked. A finding
+    that deliberately covers more (EADA has coach salaries only department-wide) passes when the
+    researcher says so in scope_note; query_scope then tells the Writer what it covers."""
+    query = normalize(result.get("query", ""))
+    rows = normalize(json.dumps(result.get("rows", []), default=str))
+    qid = finding.get("source_url", "")
+    if finding.get("scope_note") or not _EADA_TABLES.search(query):
+        return True, "scope: " + (finding.get("scope_note") or "not an EADA query")
+    has = lambda value: value.lower() in query or value.lower() in rows
+
+    sports = scope.get("sports") or []
+    if sports:
+        if not any(s.lower() in query for s in sports):
+            return False, f"the task is about {', '.join(sports)}, but {qid} doesn't filter on it"
+        dept = _DEPARTMENT_WIDE.search(query)
+        if dept:
+            return False, (f"the task is about {', '.join(sports)}, but {qid} uses {dept.group(0)}, which covers all of a "
+                           "school's teams of that gender. Use the sports table's per-team columns, or, if the measure "
+                           "exists only department-wide, say so in scope_note")
+    confs = scope.get("conferences") or []
+    if confs and not any(has(c) for c in confs):
+        return False, f"the task is about the {', '.join(confs)}, but {qid} doesn't filter on it"
+    if scope.get("power_conference") and "power_conference" not in query and not confs:
+        return False, f"the task is about power-conference schools, but {qid} doesn't filter on power_conference"
+    if scope.get("ncaa_divisions") and "ncaa_division" not in query and "classification" not in query:
+        return False, f"the task is about NCAA Division {', '.join(scope['ncaa_divisions'])}, but {qid} doesn't filter on ncaa_division"
+    for name, unitids in (scope.get("schools") or {}).items():
+        if unitids and not any(str(u) in query or str(u) in rows for u in unitids) and not has(name):
+            return False, f"the task is about {name}, but {qid} doesn't select it"
+    years = set(scope.get("survey_years") or [])
+    if years:
+        covered = _query_years(result)
+        # A join USING (unitid, survey_year) mentions the column without restricting it
+        restricts = re.search(r"survey_year\s*(=|<|>|in\b|between)|group by[^;]*survey_year", query)
+        if not covered and not restricts:
+            return False, f"the task is about {_years_label(years)}, but {qid} mixes all years together"
+        if covered and not covered & years:
+            return False, f"the task is about {_years_label(years)}, but {qid} covers {_years_label(covered)}"
+    return True, "query fits the task's scope"
 
 
 _CITATION = re.compile(r"\[(F\d+(?:\s*,\s*F\d+)*)\]")  # [F3], and the Writer's occasional [F3, F7]
@@ -300,6 +421,7 @@ if __name__ == "__main__":
     assert numbers("from 2016-2025") == {"2016", "2025"}
     # Numbers inside names aren't figures
     assert numbers("Power 4 schools in the Big 12 and Pac-12 spent 26%") == {"26"}
+    assert numbers("Big Twelve Conference, Pacific-12 Conference: 69 schools") == {"69"}
     # Citations
     report ="Women are 47% of athletes [F1]. Revenue sharing differs [F2][F7]."
     assert check_citations(report, {"F1", "F2", "F3"}) == {"unknown": ["F7"], "uncited": ["F3"]}
@@ -316,4 +438,58 @@ if __name__ == "__main__":
     assert "```chart" not in md and why
     md, why = check_charts("```chart\n" + json.dumps(good) + "\n```", found)
     assert "```chart" in md and not why
+    # Query fit: the coaching failure. Every number was in the rows; the query answered another question.
+    vocab = {"sports": ["Basketball", "Football", "Soccer"], "conferences": ["Southeastern Conference", "Big Ten Conference"]}
+    bball = {"sports": ["Basketball"], "ncaa_divisions": ["I"], "survey_years": [2024]}
+    dept = {"query": "SELECT survey_year, ncaa_division, avg(num_ascoach_men - num_ascoach_women) AS d FROM institutions "
+                     "WHERE survey_year = 2024 GROUP BY ALL", "columns": ["survey_year", "ncaa_division", "d"], "rows": [[2024, "I", 3.75]]}
+    f = {"claim": "Men's programs averaged 3.75 more assistant coaches", "source_url": "sql:q5"}
+    ok, why = fits_task(f, dept, bball)
+    assert not ok and "Basketball" in why, why
+    dept_bball = {**dept, "query": dept["query"].replace("FROM institutions", "FROM institutions JOIN sports USING (unitid, survey_year)")
+                  + " AND sports = 'Basketball'"}
+    ok, why = fits_task(f, dept_bball, bball)
+    assert not ok and "num_ascoach" in why, why  # joined to a basketball row, still department-wide
+    # A measure that exists only department-wide passes when the researcher says so in scope_note
+    assert fits_task({**f, "scope_note": "EADA has coach counts per school only across all teams"}, dept, bball)[0]
+    per_team = {"query": "SELECT survey_year, avg(men_team_asst_coaches_male + men_team_asst_coaches_female) AS m FROM sports "
+                         "JOIN institutions USING (unitid, survey_year) WHERE sports = 'Basketball' AND ncaa_division = 'I' "
+                         "AND survey_year = 2024", "columns": ["survey_year", "m"], "rows": [[2024, 3.79]]}
+    assert fits_task(f, per_team, bball)[0]
+    # The wrong year; a range covering the year is fine; all years mixed together is not
+    ok, why = fits_task(f, {**per_team, "query": per_team["query"].replace("2024", "2025"), "rows": [[2025, 3.8]]}, bball)
+    assert not ok and "2023-24" in why, why
+    ranged = {**per_team, "query": per_team["query"].replace("survey_year = 2024", "survey_year BETWEEN 2016 AND 2025"), "columns": ["m"], "rows": [[3.8]]}
+    assert fits_task(f, ranged, bball)[0]
+    pooled = {**ranged, "query": per_team["query"].replace(" AND survey_year = 2024", "").replace("SELECT survey_year, ", "SELECT ")}
+    assert not fits_task(f, pooled, bball)[0]
+    # Conferences as the data spells them (the extractor maps 'SEC' to 'Southeastern Conference')
+    sec = {"query": "SELECT count(*) AS n FROM v_spending_by_gender WHERE survey_year = 2025 AND conference = 'Southeastern Conference'",
+           "columns": ["n"], "rows": [[16]]}
+    assert fits_task(f, sec, {"conferences": ["Southeastern Conference"]})[0]
+    assert not fits_task(f, sec, {"conferences": ["Big Ten Conference"]})[0]
+    assert not fits_task(f, sec, {"power_conference": True})[0]
+    assert fits_task(f, sec, {})[0]  # a task that restricts nothing checks nothing
+    # Schools: by unitid or name, in the query or the rows; an unresolved name isn't checked
+    one = {"query": "SELECT gap_pp FROM v_proportionality WHERE unitid = 243744 AND survey_year = 2025", "columns": ["gap_pp"], "rows": [[-0.2]]}
+    assert fits_task(f, one, {"schools": {"Stanford": [243744]}})[0]
+    assert not fits_task(f, one, {"schools": {"Duke": [198419]}})[0]
+    assert fits_task(f, one, {"schools": {"Somewhere U": []}})[0]
+    # Not an EADA query (the curated NIL figures): nothing to check
+    assert fits_task(f, {"query": "SELECT value FROM nil_facts", "columns": ["value"], "rows": [[20500000]]}, bball)[0]
+    # Digits inside column names aren't numbers the rows must hold
+    assert numbers("schools_ge_25=10, avg_2018_19=1059367.62") == {"10", "1059367.62"}
+    assert query_scope(dept, vocab).startswith("all sports together; department-wide")
+    assert "conference: Southeastern Conference" in query_scope(sec, vocab)
+    # Citing two queries: counts from one, shares from the other; every number still in a result
+    sql["q6"] = {"query": "SELECT count(*) FILTER (WHERE gap_pp <= 5) AS le_5, count(*) AS schools FROM v_proportionality WHERE survey_year = 2024",
+                 "columns": ["le_5", "schools"], "rows": [[27, 69]]}
+    sql["q7"] = {"query": "SELECT 100.0 * avg((gap_pp <= 5)::int) AS pct_le_5 FROM v_proportionality WHERE survey_year = 2024",
+                 "columns": ["pct_le_5"], "rows": [[39.1304]]}
+    both = dict(claim="27 of 69 schools (39.13%) were within 5 points in 2023-24", evidence_text="le_5=27, schools=69; pct_le_5=39.1304")
+    assert not check(**both, source_url="sql:q6")[0]
+    assert check(**both, source_url="sql:q6+q7")[0]
+    assert not check(**both, source_url="sql:q6+q99")[0]
+    assert not check(**{**both, "claim": "28 of 69 schools (39.13%)"}, source_url="sql:q6+q7")[0]
+    assert not check(**{**both, "claim": "27 of 69 schools were within 6 points"}, source_url="sql:q6")[0]  # not the query's cutoff
     print(json.dumps({"evidence self-check": "ok"}))
